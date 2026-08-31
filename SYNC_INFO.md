@@ -1,4 +1,4 @@
-﻿# Mirror sync stamp (auto-generated)
+﻿# Mirror sync stamp (auto-generated; maintainer reference)
 
 SyncedAt: 2026-08-31 09:30:22
 
