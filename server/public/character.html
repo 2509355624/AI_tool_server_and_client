@@ -1,0 +1,3813 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
+    <title>AI 角色扮演 | 角色互动</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@500;700;900&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            /* Colors - Dark Nebula Theme */
+            --bg-dark: #0f172a;
+            --bg-card: rgba(30, 41, 59, 0.6);
+            --bg-input: rgba(15, 23, 42, 0.6);
+            --bg-hover: rgba(255, 255, 255, 0.05);
+            
+            --primary: #8b5cf6;
+            --primary-hover: #7c3aed;
+            --secondary: #3b82f6;
+            --accent: #f472b6;
+            
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --border: rgba(148, 163, 184, 0.1);
+            
+            --glass-border: 1px solid rgba(255, 255, 255, 0.08);
+            --shadow-lg: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+            
+            /* Spacing */
+            --radius-lg: 16px;
+            --radius-md: 8px;
+            --radius-sm: 4px;
+
+            /* Character Chat Theme */
+            --char-primary: #f472b6;
+            --char-primary-hover: #ec4899;
+            --char-bg: rgba(244, 114, 182, 0.1);
+        }
+
+        * { box-sizing: border-box; outline: none; }
+        
+        body {
+            margin: 0;
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-dark);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(139, 92, 246, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(244, 114, 182, 0.1) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: var(--text-main);
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* Layout */
+        .app-container {
+            display: flex;
+            width: 100%;
+            max-width: 1440px;
+            height: 100vh;
+            height: 100dvh;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 320px;
+            flex-shrink: 0;
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border: var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .brand {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 24px;
+            background: linear-gradient(135deg, #c4b5fd 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sidebar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: var(--glass-border);
+        }
+
+        .sidebar-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .btn-icon {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: var(--radius-sm);
+            transition: all 0.2s;
+        }
+        .btn-icon:hover { color: var(--text-main); background: var(--bg-hover); }
+
+        .presets-list {
+            flex: 1;
+            overflow-y: auto;
+            margin: 0 -10px; /* Expand scroll area */
+            padding: 0 10px;
+        }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+        .preset-item {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid transparent;
+            border-radius: var(--radius-md);
+            padding: 12px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            group: 'preset';
+        }
+        .preset-item:hover {
+            background: rgba(255,255,255,0.08);
+            border-color: rgba(255,255,255,0.1);
+            transform: translateY(-1px);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            min-width: 0; /* Fix flex overflow */
+        }
+
+        /* Config Panel */
+        .config-panel {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border: var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: 0 20px;
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+        
+        .config-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 0;
+            cursor: pointer;
+        }
+        .config-title { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+        .config-body {
+            padding-bottom: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            border-top: var(--glass-border);
+            padding-top: 20px;
+        }
+        .config-panel.collapsed .config-body { display: none; }
+        .config-panel.collapsed .config-header { padding-bottom: 16px; }
+        .config-panel.collapsed .rotate-icon { transform: rotate(-90deg); }
+
+        /* Forms */
+        .form-group { display: flex; flex-direction: column; gap: 8px; }
+        label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; }
+        
+        input, select, textarea {
+            background: var(--bg-input);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: var(--text-main);
+            padding: 10px 12px;
+            border-radius: var(--radius-md);
+            font-family: inherit;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--primary);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .btn-primary:hover {
+            box-shadow: 0 0 20px rgba(139, 92, 246, 0.4);
+            transform: translateY(-1px);
+        }
+        .btn-primary:active { transform: translateY(0); }
+        .btn-primary:disabled { opacity: 0.7; cursor: wait; }
+
+        /* Chat Styles */
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: rgba(0,0,0,0.1);
+            height: 100%;
+        }
+        
+        .chat-history {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .message {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            line-height: 1.5;
+            font-size: 14px;
+            position: relative;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .message.user {
+            align-self: flex-end;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border-bottom-right-radius: 2px;
+        }
+        
+        .message.ai {
+            align-self: flex-start;
+            background: rgba(255,255,255,0.1);
+            color: var(--text-main);
+            border-bottom-left-radius: 2px;
+        }
+        .message.ai.thinking { opacity: 0.6; font-style: italic; }
+
+        .chat-input-wrapper {
+            padding: 20px;
+            background: var(--bg-card);
+            border-top: var(--glass-border);
+            display: flex;
+            gap: 10px;
+        }
+
+        /* Utilities */
+        .hidden { display: none !important; }
+        .rotate-icon { transform: rotate(-90deg); }
+        
+    /* Toggle Switch */
+    .switch {
+        position: relative;
+        display: inline-block;
+        width: 34px;
+        height: 18px;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-color: rgba(255,255,255,0.1);
+        transition: .4s;
+        border-radius: 18px;
+    }
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 14px;
+        width: 14px;
+        left: 2px;
+        bottom: 2px;
+        background-color: white;
+        transition: .4s;
+        border-radius: 50%;
+    }
+    input:checked + .slider { background-color: var(--primary); }
+    input:checked + .slider:before { transform: translateX(16px); }
+        
+        /* Responsive — desktop fallback only; phone layout lives in character-paper.css */
+        @media (max-width: 768px) {
+            .app-container {
+                flex-direction: column;
+                padding: 10px;
+                gap: 10px;
+            }
+        }
+
+        /* Back to Home Button */
+        .back-home {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border: var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: 10px 16px;
+            color: var(--text-main);
+            text-decoration: none;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+        .back-home:hover {
+            background: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        /* Character Item Styles — base layout; sticker look comes from character-paper.css */
+        .character-item {
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .character-avatar {
+            font-size: 26px;
+        }
+        .character-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        /* Debug Button */
+        .debug-btn {
+            margin-top: 8px;
+            padding: 4px 12px;
+            font-size: 11px;
+            background: rgba(139, 92, 246, 0.2);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            border-radius: 12px;
+            color: #a78bfa;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .debug-btn:hover {
+            background: rgba(139, 92, 246, 0.3);
+            border-color: rgba(139, 92, 246, 0.5);
+        }
+        
+        /* Emotion Tag */
+        .emotion-tag {
+            display: inline-block;
+            margin-top: 4px;
+            padding: 2px 8px;
+            font-size: 10px;
+            background: rgba(244, 114, 182, 0.15);
+            border-radius: 10px;
+            color: #f472b6;
+        }
+
+        .chat-image-wrap {
+            margin-top: 10px;
+        }
+        .chat-image {
+            max-width: min(280px, 70%);
+            border-radius: 12px;
+            display: block;
+            cursor: zoom-in;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .image-pending,
+        .image-failed {
+            margin-top: 10px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        .image-pending {
+            color: #a78bfa;
+        }
+        .image-failed {
+            color: #f87171;
+        }
+        .image-lightbox {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.82);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1200;
+            cursor: zoom-out;
+            padding: 24px;
+        }
+        .image-lightbox img {
+            max-width: 90vw;
+            max-height: 90vh;
+            border-radius: 12px;
+        }
+        
+        .timing-info {
+            display: flex;
+            gap: 8px;
+            font-size: 10px;
+            color: rgba(38, 34, 28, 0.55);
+            margin-top: 8px;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+        }
+        
+        .timing-item {
+            background: rgba(38, 34, 28, 0.06);
+            color: rgba(38, 34, 28, 0.72);
+            border: 1px solid rgba(38, 34, 28, 0.14);
+            padding: 2px 6px;
+            border-radius: 6px;
+        }
+        
+        /* Debug Modal */
+        .debug-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+        .debug-modal-content {
+            background: var(--bg-dark);
+            border: var(--glass-border);
+            border-radius: var(--radius-lg);
+            width: 100%;
+            max-width: 900px;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: var(--shadow-lg);
+        }
+        .debug-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: var(--border);
+        }
+        .debug-modal-header h3 {
+            margin: 0;
+            color: var(--text-main);
+        }
+        .close-btn {
+            width: 28px;
+            height: 28px;
+            border: none;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.2s;
+        }
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            color: var(--text-main);
+        }
+        .debug-modal-body {
+            padding: 20px;
+            max-height: calc(80vh - 60px);
+            overflow-y: auto;
+        }
+        .debug-section {
+            margin-bottom: 20px;
+        }
+        .debug-section:last-child {
+            margin-bottom: 0;
+        }
+        .debug-section h4 {
+            margin: 0 0 8px 0;
+            color: var(--text-muted);
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .debug-section pre {
+            margin: 0;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: var(--radius-md);
+            font-size: 12px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        /* Character modal — sticker styles in character-paper.css */
+    </style>
+    <link rel="stylesheet" href="styles/character-paper.css?v=22">
+</head>
+<body>
+
+<a href="index.html" class="back-home" id="backHomeBtn">
+    <span>🏠</span>
+    <span class="back-home-label">返回主页</span>
+</a>
+
+<button type="button" class="mobile-mode-toggle" id="mobileModeToggle" onclick="toggleForcedMobileMode()" title="切换手机布局">📱</button>
+
+<div class="mobile-drawer-backdrop" id="mobileDrawerBackdrop" onclick="closeMobileDrawers()" hidden></div>
+
+<div class="app-container">
+    <aside class="sidebar sticker tilt-l" id="characterSidebar">
+        <div class="tape"></div>
+        <div class="mobile-drawer-head">
+            <span>选择角色</span>
+            <button type="button" class="btn-icon mobile-drawer-close" onclick="closeMobileDrawers()" aria-label="关闭">✕</button>
+        </div>
+        <div class="brand">
+            <span class="kicker">角色本</span>
+            <span class="brand-title">角色选择</span>
+        </div>
+        <div class="sidebar-header">
+            <span class="sidebar-title">我的角色</span>
+            <button class="btn-icon" onclick="createNewCharacter()" title="添加新角色">➕ 新建</button>
+        </div>
+        <div id="charactersList" class="presets-list">
+            <div style="text-align:center; color:var(--text-muted); padding:20px; font-size:12px;">
+                加载中...
+            </div>
+        </div>
+        <div class="ticket">CHARACTER · STICKER SHEET</div>
+    </aside>
+
+    <main class="main-content chat-main sticker">
+        <div class="tape warm"></div>
+        <div class="chat-topbar chat-topbar-slim">
+            <div class="chat-topbar-mobile-nav" id="chatMobileNav">
+                <button type="button" class="btn-icon mobile-nav-btn" onclick="toggleMobileDrawer('chars')" title="角色" aria-label="选择角色">👤</button>
+                <button type="button" class="mobile-char-chip" id="mobileCharChip" onclick="toggleMobileDrawer('chars')" title="点按切换角色">
+                    <span id="mobileCharAvatar" class="mobile-char-avatar">🎭</span>
+                    <span id="mobileCharName" class="mobile-char-name">点这里选角色</span>
+                </button>
+                <button type="button" class="btn-icon mobile-nav-btn" onclick="toggleMobileDrawer('settings')" title="配置" aria-label="配置">⚙️</button>
+                <details class="mobile-more-menu" id="mobileMoreMenu">
+                    <summary class="btn-icon mobile-nav-btn" title="更多">···</summary>
+                    <div class="mobile-more-panel">
+                        <button type="button" class="mobile-more-item" onclick="openVisualRefEditor(); closeMobileMoreMenu();">🎨 上轮生图参考</button>
+                        <button type="button" class="mobile-more-item" onclick="openExportModal(); closeMobileMoreMenu();">📸 导出截图</button>
+                        <button type="button" class="mobile-more-item" onclick="editCurrentCharacter(); closeMobileMoreMenu();">✎ 编辑角色</button>
+                        <button type="button" class="mobile-more-item" onclick="clearCurrentChat(); closeMobileMoreMenu();">🗑️ 清空对话</button>
+                        <button type="button" class="mobile-more-item" onclick="toggleSystemPrompt(); closeMobileMoreMenu();">📝 原始提示词</button>
+                        <a class="mobile-more-item" href="index.html">🏠 返回主页</a>
+                    </div>
+                </details>
+            </div>
+            <div class="chat-topbar-left" hidden aria-hidden="true">
+                <span id="currentCharAvatar" class="chat-avatar">🎭</span>
+                <div class="chat-topbar-text">
+                    <div id="currentCharName" class="chat-name">选择角色</div>
+                    <div id="currentCharDesc" class="chat-desc">与喜欢的角色互动吧</div>
+                    <div id="currentCharBase" class="chat-base"></div>
+                </div>
+            </div>
+            <div class="chat-topbar-actions desktop-only-actions">
+                <button class="btn-icon" id="btnToggleSettings" onclick="toggleSettingsCollapsed()" title="展开/收起配置贴纸">⚙️ 配置</button>
+                <button class="btn-icon" onclick="openVisualRefEditor()" title="查看/编辑发给 AI 的上轮生图参考">🎨</button>
+                <button class="btn-icon" onclick="openExportModal()" title="导出对话截图">📸</button>
+                <button class="btn-icon" onclick="editCurrentCharacter()" title="编辑角色">✎</button>
+                <button class="btn-icon" onclick="clearCurrentChat()" title="清空对话">🗑️</button>
+                <button class="btn-icon" onclick="toggleSystemPrompt()" title="查看原始提示词">📝</button>
+            </div>
+        </div>
+        <div class="chat-section">
+            <div class="chat-container">
+                <div id="charChatHistory" class="chat-history">
+                    <div class="message ai chat-empty-hint" style="text-align: center; color: var(--text-muted);">
+                        点上方角色名或 👤 选择角色开始对话
+                    </div>
+                </div>
+                
+                <div class="chat-input-wrapper">
+                    <textarea id="charChatInput" placeholder="输入消息…" rows="1" style="flex: 1; height: 48px; resize: none;"></textarea>
+                    <button class="btn-primary send-char-btn" onclick="sendCharacterMessage()">
+                        <span>🚀</span>
+                        <span class="send-label">发送</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <aside class="settings-panel sticker" id="characterInfoPanel">
+        <div class="tape"></div>
+        <div class="mobile-drawer-head">
+            <span>配置贴纸</span>
+            <button type="button" class="btn-icon mobile-drawer-close" onclick="closeMobileDrawers()" aria-label="关闭">✕</button>
+        </div>
+        <div class="settings-header">
+            <h2>配置贴纸</h2>
+            <div class="settings-header-actions">
+                <span class="kicker kicker-sm">AI + Comfy</span>
+                <button type="button" class="btn-icon settings-collapse-btn" onclick="toggleSettingsCollapsed()" title="收起配置">收起 ›</button>
+            </div>
+        </div>
+        <div class="settings-scroll config-body" id="settingsScroll">
+            
+                <!-- Model Selection -->
+                <div class="form-group">
+                    <label>AI Provider</label>
+                    <select id="provider" onchange="toggleProviderSettings()">
+                        <option value="doubao" selected>Doubao (火山引擎)</option>
+                        <option value="ollama">Local Ollama</option>
+                        <option value="deepseek">DeepSeek</option>
+                        <option value="openai">OpenAI / Compatible</option>
+                    </select>
+                </div>
+
+                <!-- Doubao Specific -->
+                <div id="doubaoInfo" class="form-group">
+                    <label>Doubao Model</label>
+                    <select id="doubaoModel">
+                        <option value="deepseek-v4-flash-ga-260731" selected>DeepSeek v4 Flash GA (火山引擎)</option>
+                        <option value="deepseek-v4-flash-260425">DeepSeek v4 Flash (火山引擎)</option>
+                        <option value="doubao-seed-2-0-mini-260428">Doubao Seed 2.0 Mini</option>
+                        <option value="doubao-seed-2-0-lite-260428">Doubao Seed 2.0 Lite</option>
+                        <option value="2.0">Doubao 2.0 Pro</option>
+                        <option value="1.8">Doubao 1.8 Pro</option>
+                        <option value="1.6">Doubao 1.6 Flash (Vision Support)</option>
+                    </select>
+                </div>
+
+                <!-- Generic Settings -->
+                <div id="genericSettings" class="hidden" style="display: contents;">
+                    <div class="form-group" style="flex: 2;">
+                        <label>Base URL</label>
+                        <input type="text" id="baseUrl" value="https://api.deepseek.com">
+                    </div>
+                    
+                    <div class="form-group" style="flex: 1;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <label>Model Name</label>
+                            <span id="refreshModelsBtn" class="hidden" onclick="fetchOllamaModels(true)" style="cursor: pointer; font-size: 10px; color: var(--primary);">🔄 Refresh</span>
+                        </div>
+                        <div id="modelInputContainer">
+                            <input type="text" id="model" class="model-input" value="deepseek-v4-flash">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group" id="apiKeyGroup">
+                        <label>API Key</label>
+                        <input type="password" id="apiKey" placeholder="sk-...">
+                    </div>
+                </div>
+
+                <div class="form-group wf-full">
+                    <label style="display:flex; justify-content:space-between; align-items:center;">
+                        <span>Comfy 出图参数 / Workflow</span>
+                        <span style="display:flex; gap:10px;">
+                            <span onclick="resetWorkflowSettings()" style="cursor:pointer; font-size:11px; color:var(--primary);">恢复默认</span>
+                            <span onclick="loadWorkflowOptions(true)" style="cursor:pointer; font-size:11px; color:var(--primary);">刷新列表</span>
+                        </span>
+                    </label>
+                    <div class="wf-preset-bar">
+                        <select id="wfPresetSelect" class="wf-preset-select" onchange="applyWorkflowPreset(this.value)" title="切换已保存的工作流预设">
+                            <option value="">— 手动调整 —</option>
+                        </select>
+                        <button type="button" class="wf-preset-btn" onclick="saveNewWorkflowPreset()">＋ 存预设</button>
+                        <button type="button" class="wf-preset-btn" onclick="updateWorkflowPreset()" title="用当前参数覆盖所选预设">更新</button>
+                        <button type="button" class="wf-preset-btn wf-preset-danger" onclick="deleteWorkflowPreset()">删除</button>
+                    </div>
+                    <div class="wf-grid">
+                        <div class="wf-full">
+                            <label style="font-size:11px; color:var(--text-muted);">Checkpoint</label>
+                            <select id="comfyCheckpoint" onchange="saveWorkflowSettings()"></select>
+                        </div>
+                        <div>
+                            <label style="font-size:11px; color:var(--text-muted);">宽 Width</label>
+                            <input type="number" id="wfWidth" value="544" min="64" step="8" onchange="saveWorkflowSettings()">
+                        </div>
+                        <div>
+                            <label style="font-size:11px; color:var(--text-muted);">高 Height</label>
+                            <input type="number" id="wfHeight" value="960" min="64" step="8" onchange="saveWorkflowSettings()">
+                        </div>
+                        <div>
+                            <label style="font-size:11px; color:var(--text-muted);">Steps</label>
+                            <input type="number" id="wfSteps" value="30" min="1" max="150" onchange="saveWorkflowSettings()">
+                        </div>
+                        <div>
+                            <label style="font-size:11px; color:var(--text-muted);">CFG</label>
+                            <input type="number" id="wfCfg" value="3" min="0" max="30" step="0.1" onchange="saveWorkflowSettings()">
+                        </div>
+                        <div>
+                            <label style="font-size:11px; color:var(--text-muted);">Sampler</label>
+                            <select id="wfSampler" onchange="saveWorkflowSettings()"></select>
+                        </div>
+                        <div>
+                            <label style="font-size:11px; color:var(--text-muted);">Scheduler</label>
+                            <select id="wfScheduler" onchange="saveWorkflowSettings()"></select>
+                        </div>
+                        <div>
+                            <label style="font-size:11px; color:var(--text-muted);">Denoise</label>
+                            <input type="number" id="wfDenoise" value="1" min="0" max="1" step="0.01" onchange="saveWorkflowSettings()">
+                        </div>
+                        <div>
+                            <label style="font-size:11px; color:var(--text-muted);">Seed（-1 随机）</label>
+                            <input type="number" id="wfSeed" value="-1" onchange="saveWorkflowSettings()">
+                        </div>
+                        <div class="wf-full wf-check-row">
+                            <input type="checkbox" id="wfEnableHires" onchange="saveWorkflowSettings(); toggleHiresFields()">
+                            <label for="wfEnableHires" style="margin:0;">开启高清修复 / Hires</label>
+                        </div>
+                        <div class="wf-full wf-check-row">
+                            <input type="checkbox" id="wfEnableUpscale" onchange="saveWorkflowSettings(); toggleUpscaleFields()">
+                            <label for="wfEnableUpscale" style="margin:0;">二倍超分 / 2x Upscale（默认关）</label>
+                        </div>
+                        <div id="upscaleFields" class="wf-grid wf-full" style="display:none;">
+                            <div class="wf-full">
+                                <label style="font-size:11px; color:var(--text-muted);">超分模型</label>
+                                <select id="wfUpscaleModel" onchange="saveWorkflowSettings()"></select>
+                            </div>
+                        </div>
+                        <div id="hiresFields" class="wf-grid wf-full" style="display:none;">
+                            <div>
+                                <label style="font-size:11px; color:var(--text-muted);">Hires 宽</label>
+                                <input type="number" id="wfHiresWidth" value="1080" min="64" step="8" onchange="saveWorkflowSettings()">
+                            </div>
+                            <div>
+                                <label style="font-size:11px; color:var(--text-muted);">Hires 高</label>
+                                <input type="number" id="wfHiresHeight" value="1920" min="64" step="8" onchange="saveWorkflowSettings()">
+                            </div>
+                            <div>
+                                <label style="font-size:11px; color:var(--text-muted);">Hires Denoise</label>
+                                <input type="number" id="wfHiresDenoise" value="0.4" min="0" max="1" step="0.01" onchange="saveWorkflowSettings()">
+                            </div>
+                            <div>
+                                <label style="font-size:11px; color:var(--text-muted);">Hires Steps</label>
+                                <input type="number" id="wfHiresSteps" value="20" min="1" max="150" onchange="saveWorkflowSettings()">
+                            </div>
+                        </div>
+                        <div class="wf-full">
+                            <label style="font-size:11px; color:var(--text-muted);">LoRA 1（对比度）</label>
+                            <div class="wf-lora-row">
+                                <select id="wfLora1Name" onchange="saveWorkflowSettings()"></select>
+                                <input type="number" id="wfLora1Model" value="0.6" min="0" max="2" step="0.05" title="model strength" onchange="saveWorkflowSettings()">
+                                <input type="number" id="wfLora1Clip" value="1" min="0" max="2" step="0.05" title="clip strength" onchange="saveWorkflowSettings()">
+                            </div>
+                        </div>
+                        <div class="wf-full">
+                            <label style="font-size:11px; color:var(--text-muted);">LoRA 2（饱和度）</label>
+                            <div class="wf-lora-row">
+                                <select id="wfLora2Name" onchange="saveWorkflowSettings()"></select>
+                                <input type="number" id="wfLora2Model" value="0.5" min="0" max="2" step="0.05" onchange="saveWorkflowSettings()">
+                                <input type="number" id="wfLora2Clip" value="1" min="0" max="2" step="0.05" onchange="saveWorkflowSettings()">
+                            </div>
+                        </div>
+                        <div class="wf-full">
+                            <label style="font-size:11px; color:var(--text-muted);">LoRA 3（画风）</label>
+                            <div class="wf-lora-row">
+                                <select id="wfLora3Name" onchange="saveWorkflowSettings()"></select>
+                                <input type="number" id="wfLora3Model" value="0.5" min="0" max="2" step="0.05" onchange="saveWorkflowSettings()">
+                                <input type="number" id="wfLora3Clip" value="1" min="0" max="2" step="0.05" onchange="saveWorkflowSettings()">
+                            </div>
+                            <div style="font-size:10px; color:var(--text-muted); margin-top:4px;">两列数字分别是 Model 强度 / CLIP 强度；选 (none) 或强度 0 等于关掉</div>
+                        </div>
+                        <div class="wf-full">
+                            <label style="font-size:11px; color:var(--text-muted);">负向提示词</label>
+                            <textarea id="wfNegative" style="height:72px; resize:vertical;" onchange="saveWorkflowSettings()"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 小红书贴纸导出 -->
+                <div class="form-group wf-full sticker-export-block">
+                    <label>小红书边框导出</label>
+                    <div class="sticker-export-fields">
+                        <label class="sticker-export-sublabel" for="stickerFramePreset">边框预设</label>
+                        <select id="stickerFramePreset" onchange="saveStickerExportSettings()">
+                            <option value="none">无边框 · 原图</option>
+                            <option value="paper-collage" selected>贴纸剪贴 · paper-collage（磨砂玻璃）</option>
+                            <option value="sketch-note">手绘线稿 · sketch-note</option>
+                            <option value="apple-glass">苹果浅蓝玻璃</option>
+                            <option value="polaroid">拍立得</option>
+                            <option value="minimal">简约白边</option>
+                            <option value="chat">对话条同款</option>
+                        </select>
+                        <label class="sticker-export-sublabel" for="stickerExportFolderPath">导出文件夹</label>
+                        <div class="sticker-export-folder-row">
+                            <input type="text" id="stickerExportFolderPath" placeholder="选择或粘贴完整路径" oninput="onStickerExportFolderInput()">
+                            <button type="button" class="btn-icon" onclick="pickStickerExportFolder()">选择</button>
+                        </div>
+                        <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">
+                            对话配图下方点「导出小红书边框」会用原图 + 当前预设（默认贴纸剪贴磨砂玻璃）写入此文件夹
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Force Prompt -->
+                <div class="form-group wf-full">
+                    <label>强制提示词 / Force Prompt</label>
+                    <textarea id="forcePrompt" placeholder="输入强制提示词，例如：我是和泉纱雾最信任的人" style="height: 80px; resize: vertical;" oninput="saveForcePrompt()"></textarea>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+                        强制提示词会覆盖角色的部分设定，让AI按照你的要求回应
+                    </div>
+                </div>
+
+                <!-- System Prompt -->
+                <div id="systemPromptSection" class="form-group hidden wf-full">
+                    <label>角色原始提示词 / Original System Prompt</label>
+                    <textarea id="currentSystemPrompt" readonly style="height: 120px; resize: vertical; background: rgba(0,0,0,0.2); color: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-size: 12px;"></textarea>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+                        这是角色的原始设定提示词，修改需要编辑角色
+                    </div>
+                </div>
+            
+            <div class="ticket">CFG · LORA · WORKFLOW</div>
+        </div>
+    </aside>
+</div>
+
+<div id="exportRenderHost" class="export-render-host" aria-hidden="true"></div>
+
+<div id="exportModalOverlay" class="export-modal-overlay" hidden onclick="if(event.target===this)closeExportModal()">
+    <div class="export-modal sticker" role="dialog" aria-labelledby="exportModalTitle">
+        <div class="export-modal-header">
+            <div>
+                <h3 id="exportModalTitle">导出对话截图</h3>
+                <p class="export-modal-sub">勾选要导出的轮次，生成竖图条（用户气泡 + AI 回复 + 配图），按顺序编号保存</p>
+            </div>
+            <button type="button" class="modal-close-btn" onclick="closeExportModal()">&times;</button>
+        </div>
+        <div class="export-modal-toolbar">
+            <label class="export-select-all"><input type="checkbox" id="exportSelectAll" onchange="toggleExportSelectAll(this.checked)"> 全选</label>
+            <span id="exportTurnCount" class="export-turn-count"></span>
+        </div>
+        <div id="exportTurnList" class="export-turn-list"></div>
+        <div class="export-folder-row">
+            <label for="exportFolderPath">保存文件夹</label>
+            <div class="export-folder-picker">
+                <input type="text" id="exportFolderPath" class="form-input" placeholder="点击「选择文件夹」或粘贴完整路径" oninput="clearExportDirHandle()">
+                <button type="button" class="btn-secondary export-pick-folder-btn" onclick="pickExportFolder()">选择文件夹</button>
+            </div>
+            <p class="export-folder-hint">推荐点按钮选择；Edge / Chrome 可直接写入所选文件夹</p>
+        </div>
+        <div class="export-modal-footer">
+            <button type="button" class="btn-secondary" onclick="closeExportModal()">取消</button>
+            <button type="button" class="btn-primary-gradient" id="exportSubmitBtn" onclick="exportSelectedStrips()">导出 PNG</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="js/sticker-frame.js?v=9"></script>
+<script>
+    // --- Global State ---
+    let characters = [];
+    let currentCharacter = null;
+    let characterChatMessages = [];
+    let turnMemory = [];
+    let conversationSummary = '';
+    let lastVisualCache = null; // session cache so outfit/scene continuity does not wait for Comfy
+    const imageJobStreams = new Map();
+    let activeChatTurnStream = null;
+    let activeChatTurn = null;
+    const FORCE_PROMPT_STORAGE_KEY = 'characterForcePrompts';
+    const EXPORT_FOLDER_STORAGE_KEY = 'chatExportFolderPath';
+    const STICKER_EXPORT_FOLDER_KEY = 'chatStickerExportFolderPath';
+    const STICKER_FRAME_PRESET_KEY = 'chatStickerFramePreset';
+    const SETTINGS_COLLAPSED_KEY = 'characterSettingsCollapsed';
+    const TURN_MEMORY_STORE_MAX = 20;
+    const ROLEPLAY_SESSION_KEY_PREFIX = 'roleplay_active_session_';
+    let stickerExportDirHandle = null;
+
+    function roleplaySessionKey(characterId) {
+        return `${ROLEPLAY_SESSION_KEY_PREFIX}${characterId || ''}`;
+    }
+
+    function loadRoleplaySession(characterId) {
+        if (!characterId) return null;
+        try {
+            const raw = localStorage.getItem(roleplaySessionKey(characterId));
+            if (!raw) return null;
+            const data = JSON.parse(raw);
+            return data && typeof data === 'object' ? data : null;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function saveRoleplaySession(characterId, patch) {
+        if (!characterId) return;
+        try {
+            const prev = loadRoleplaySession(characterId) || {};
+            const next = { ...prev, ...patch, characterId, updatedAt: Date.now() };
+            localStorage.setItem(roleplaySessionKey(characterId), JSON.stringify(next));
+        } catch (e) {
+            console.warn('roleplay session save failed', e);
+        }
+    }
+
+    function clearRoleplaySession(characterId) {
+        if (!characterId) return;
+        try {
+            localStorage.removeItem(roleplaySessionKey(characterId));
+        } catch (_) {}
+    }
+
+    function normalizeTurnMemory(raw) {
+        if (!Array.isArray(raw)) return [];
+        return raw.map((entry, i) => ({
+            turnIndex: entry.turnIndex ?? i + 1,
+            timestamp: entry.timestamp ?? Date.now(),
+            userBrief: entry.userBrief || '',
+            assistantBrief: entry.assistantBrief || '',
+            emotion: entry.emotion || (entry.emotionAnalysis?.emotionAnalysis ? {
+                primaryEmotion: entry.emotionAnalysis.emotionAnalysis.primaryEmotion,
+                intensity: entry.emotionAnalysis.emotionAnalysis.intensity,
+                trend: entry.emotionAnalysis.emotionAnalysis.trend
+            } : null)
+        }));
+    }
+
+    function appendTurnMemoryEntry(entry) {
+        if (!entry) return;
+        turnMemory.push(entry);
+        if (turnMemory.length > TURN_MEMORY_STORE_MAX) {
+            turnMemory = turnMemory.slice(-TURN_MEMORY_STORE_MAX);
+        }
+    }
+    const WF_ACTIVE_PRESET_KEY = 'comfyActiveWorkflowPresetId';
+    const WF_LOCAL_PRESETS_KEY = 'comfyWorkflowPresets';
+    const WF_LOCAL_SETTINGS_KEY = 'comfyWorkflowSettings';
+    let workflowPersistState = { settings: null, activePresetId: '', presets: [] };
+    let workflowPersistSaveTimer = null;
+    let exportDirHandle = null;
+
+    function loadForcePromptMap() {
+        try {
+            const raw = localStorage.getItem(FORCE_PROMPT_STORAGE_KEY);
+            return raw ? JSON.parse(raw) : {};
+        } catch (e) {
+            return {};
+        }
+    }
+
+    function saveForcePromptMap(map) {
+        try {
+            localStorage.setItem(FORCE_PROMPT_STORAGE_KEY, JSON.stringify(map));
+        } catch (e) {
+            console.warn('Failed to save force prompt', e);
+        }
+    }
+
+    function loadForcePromptForCharacter(characterId) {
+        const box = document.getElementById('forcePrompt');
+        if (!box) return;
+        const map = loadForcePromptMap();
+        box.value = characterId && map[characterId] ? map[characterId] : '';
+    }
+
+    function saveForcePrompt() {
+        if (!currentCharacter) return;
+        const text = document.getElementById('forcePrompt')?.value || '';
+        const map = loadForcePromptMap();
+        if (text.trim()) {
+            map[currentCharacter.id] = text;
+        } else {
+            delete map[currentCharacter.id];
+        }
+        saveForcePromptMap(map);
+    }
+
+    const VISUAL_REF_FIELDS = [
+        ['outfit', '服饰 outfit'],
+        ['scene', '场景 scene'],
+        ['atmosphere', '氛围 atmosphere'],
+        ['action', '动作 action'],
+        ['expression', '表情 expression'],
+        ['camera', '机位 camera'],
+        ['prompt', '综合 prompt（结构化字段为空时使用）']
+    ];
+    let visualRefSaveTimer = null;
+
+    function cloneVisualRef(obj) {
+        if (!obj) return null;
+        try {
+            return JSON.parse(JSON.stringify(obj));
+        } catch (e) {
+            return { ...obj };
+        }
+    }
+
+    function deriveVisualRefSource(msg) {
+        if (!msg) return null;
+        if (msg.visual && (msg.visual.prompt || msg.visual.outfit || msg.visual.scene || msg.visual.action || msg.visual.expression || msg.visual.atmosphere)) {
+            return cloneVisualRef(msg.visual);
+        }
+        if (msg.imageTurnPrompt && String(msg.imageTurnPrompt).trim()) {
+            return { prompt: String(msg.imageTurnPrompt).trim() };
+        }
+        return null;
+    }
+
+    function findLastVisualSourceMessage() {
+        for (let i = characterChatMessages.length - 1; i >= 0; i--) {
+            const msg = characterChatMessages[i];
+            if (msg.role !== 'assistant') continue;
+            if (msg.visualRefForAi || deriveVisualRefSource(msg)) return msg;
+        }
+        return null;
+    }
+
+    function syncVisualRefFromMessage(msg) {
+        if (!msg || msg.visualRefEdited) return;
+        const source = deriveVisualRefSource(msg);
+        if (source) msg.visualRefForAi = source;
+    }
+
+    function rememberVisual(visual) {
+        if (!visual) return;
+        if (typeof visual === 'string' && visual.trim()) {
+            lastVisualCache = { prompt: visual.trim() };
+            return;
+        }
+        if (visual.prompt || visual.outfit || visual.scene || visual.action || visual.expression || visual.atmosphere) {
+            lastVisualCache = visual;
+        }
+    }
+
+    function getLastVisualContext() {
+        const msg = findLastVisualSourceMessage();
+        if (msg) {
+            const ref = msg.visualRefForAi || deriveVisualRefSource(msg);
+            if (ref) {
+                rememberVisual(ref);
+                return ref;
+            }
+        }
+        return lastVisualCache;
+    }
+
+    function collectVisualRefFromEditor(msgId) {
+        const ref = {};
+        for (const [key] of VISUAL_REF_FIELDS) {
+            const el = document.getElementById(`visualRef_${msgId}_${key}`);
+            if (!el) continue;
+            const val = String(el.value || '').trim();
+            if (val) ref[key] = val;
+        }
+        return ref;
+    }
+
+    function fillVisualRefEditor(msgId, ref) {
+        const data = ref || {};
+        for (const [key] of VISUAL_REF_FIELDS) {
+            const el = document.getElementById(`visualRef_${msgId}_${key}`);
+            if (el) el.value = data[key] || '';
+        }
+    }
+
+    async function saveVisualRefFromEditor(msgId, { silent = false } = {}) {
+        const msg = characterChatMessages.find((m) => m.id === msgId);
+        if (!msg) return;
+        const ref = collectVisualRefFromEditor(msgId);
+        if (!Object.keys(ref).length) {
+            if (!silent) {
+                const statusEl = document.getElementById('visualRefSaveStatus');
+                if (statusEl) statusEl.textContent = '至少填写一个字段';
+            }
+            return;
+        }
+        msg.visualRefForAi = ref;
+        msg.visualRefEdited = true;
+        rememberVisual(ref);
+        await saveChatHistory();
+        const statusEl = document.getElementById('visualRefSaveStatus');
+        if (statusEl) {
+            statusEl.textContent = silent ? '已自动保存' : '已保存';
+        }
+    }
+
+    function scheduleVisualRefSave(msgId) {
+        clearTimeout(visualRefSaveTimer);
+        const statusEl = document.getElementById('visualRefSaveStatus');
+        if (statusEl) statusEl.textContent = '保存中…';
+        visualRefSaveTimer = setTimeout(() => {
+            saveVisualRefFromEditor(msgId, { silent: true });
+        }, 450);
+    }
+
+    async function resetVisualRefToAuto(msgId) {
+        const msg = characterChatMessages.find((m) => m.id === msgId);
+        if (!msg) return;
+        msg.visualRefEdited = false;
+        delete msg.visualRefForAi;
+        syncVisualRefFromMessage(msg);
+        const ref = msg.visualRefForAi || deriveVisualRefSource(msg);
+        if (ref) rememberVisual(ref);
+        fillVisualRefEditor(msgId, ref);
+        await saveChatHistory();
+        const statusEl = document.getElementById('visualRefSaveStatus');
+        if (statusEl) statusEl.textContent = '已恢复为出图原始参考';
+    }
+
+    function closeVisualRefEditor() {
+        const modal = document.getElementById('visualRefModal');
+        if (modal) modal.remove();
+        clearTimeout(visualRefSaveTimer);
+    }
+
+    function openVisualRefEditor() {
+        if (!currentCharacter) {
+            alert('请先选择一个角色');
+            return;
+        }
+        const existing = document.getElementById('visualRefModal');
+        if (existing) {
+            closeVisualRefEditor();
+            return;
+        }
+        const msg = findLastVisualSourceMessage();
+        if (!msg) {
+            alert('暂无上一轮生图参考\n\n需要先完成至少一轮对话（最好等出图完成后再编辑）');
+            return;
+        }
+        syncVisualRefFromMessage(msg);
+        const ref = msg.visualRefForAi || deriveVisualRefSource(msg) || {};
+        const msgId = msg.id;
+        const fieldsHtml = VISUAL_REF_FIELDS.map(([key, label]) => `
+            <div class="visual-ref-field">
+                <label for="visualRef_${msgId}_${key}">${escapeHtml(label)}</label>
+                <textarea id="visualRef_${msgId}_${key}" class="visual-ref-input" rows="${key === 'prompt' ? 3 : 2}" placeholder="SD1.5 tags，英文逗号分隔，多词用下划线"></textarea>
+            </div>
+        `).join('');
+
+        const modal = document.createElement('div');
+        modal.id = 'visualRefModal';
+        modal.className = 'system-prompt-modal visual-ref-modal';
+        modal.onclick = (e) => { if (e.target === modal) closeVisualRefEditor(); };
+        modal.innerHTML = `
+            <div class="visual-ref-sheet sticker" onclick="event.stopPropagation()">
+                <div class="tape warm"></div>
+                <div class="system-prompt-head">
+                    <div>
+                        <h3>上轮生图参考 · ${escapeHtml(currentCharacter.name || '')}</h3>
+                        <p class="visual-ref-sub">修改后会自动保存，并作为<strong>下一轮</strong>发给 AI 的 continuity 参考（不影响已发出的对话）</p>
+                    </div>
+                    <button type="button" class="btn-icon" onclick="closeVisualRefEditor()" title="关闭">✕</button>
+                </div>
+                <div class="visual-ref-fields">${fieldsHtml}</div>
+                <div class="visual-ref-footer">
+                    <span id="visualRefSaveStatus" class="visual-ref-status">${msg.visualRefEdited ? '已手动修改' : '跟随出图结果'}</span>
+                    <div class="visual-ref-actions">
+                        <button type="button" class="btn-secondary visual-ref-btn" onclick="resetVisualRefToAuto('${msgId}')">恢复出图原始</button>
+                        <button type="button" class="btn-primary-gradient visual-ref-btn" onclick="saveVisualRefFromEditor('${msgId}')">立即保存</button>
+                    </div>
+                </div>
+                <div class="ticket">VISUAL REF · NEXT TURN</div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        fillVisualRefEditor(msgId, ref);
+        for (const [key] of VISUAL_REF_FIELDS) {
+            const el = document.getElementById(`visualRef_${msgId}_${key}`);
+            if (el) el.addEventListener('input', () => scheduleVisualRefSave(msgId));
+        }
+    }
+
+    function makeMessageId() {
+        return 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    }
+
+    function openChatImage(url) {
+        const box = document.createElement('div');
+        box.className = 'image-lightbox';
+        box.innerHTML = `<img src="${escapeHtml(url)}" alt="character">`;
+        box.addEventListener('click', () => box.remove());
+        document.body.appendChild(box);
+    }
+
+    // --- Utilities ---
+    function copyText(btn, text) {
+        navigator.clipboard.writeText(text).then(() => {
+            const original = btn.innerText;
+            btn.innerText = '✅ Copied!';
+            setTimeout(() => btn.innerText = original, 2000);
+        });
+    }
+    
+    // --- Initialization ---
+    const MOBILE_FORCE_KEY = 'character_force_mobile';
+
+    function isMobileShellActive() {
+        return document.body.classList.contains('mobile-shell');
+    }
+
+    function syncMobileShellClass() {
+        const forced = localStorage.getItem(MOBILE_FORCE_KEY) === '1';
+        const narrow = window.matchMedia('(max-width: 1100px)').matches;
+        document.body.classList.toggle('force-mobile', forced);
+        document.body.classList.toggle('is-narrow', narrow);
+        document.body.classList.toggle('mobile-shell', forced || narrow);
+        const toggle = document.getElementById('mobileModeToggle');
+        if (toggle) {
+            toggle.title = forced ? '切回桌面三栏布局' : '预览手机布局';
+            toggle.textContent = forced ? '💻' : '📱';
+        }
+        if (!document.body.classList.contains('mobile-shell')) {
+            closeMobileDrawers();
+            closeMobileMoreMenu();
+        }
+    }
+
+    function initMobileShell() {
+        syncMobileShellClass();
+        window.addEventListener('resize', syncMobileShellClass);
+        try {
+            window.matchMedia('(max-width: 1100px)').addEventListener('change', syncMobileShellClass);
+        } catch (_) {
+            window.matchMedia('(max-width: 1100px)').addListener(syncMobileShellClass);
+        }
+        if (isMobileShellActive() && !currentCharacter) {
+            setTimeout(() => toggleMobileDrawer('chars'), 250);
+        }
+    }
+
+    function toggleForcedMobileMode() {
+        const next = localStorage.getItem(MOBILE_FORCE_KEY) !== '1';
+        localStorage.setItem(MOBILE_FORCE_KEY, next ? '1' : '0');
+        syncMobileShellClass();
+        closeMobileDrawers();
+        closeMobileMoreMenu();
+    }
+
+    function closeMobileMoreMenu() {
+        const menu = document.getElementById('mobileMoreMenu');
+        if (menu) menu.open = false;
+    }
+
+    function toggleMobileDrawer(which) {
+        if (!isMobileShellActive()) return;
+        const charsOpen = document.body.classList.contains('drawer-chars-open');
+        const settingsOpen = document.body.classList.contains('drawer-settings-open');
+        const backdrop = document.getElementById('mobileDrawerBackdrop');
+        if (which === 'chars') {
+            if (charsOpen) {
+                closeMobileDrawers();
+            } else {
+                document.body.classList.add('drawer-chars-open');
+                document.body.classList.remove('drawer-settings-open');
+                if (backdrop) backdrop.hidden = false;
+            }
+        } else if (which === 'settings') {
+            if (settingsOpen) {
+                closeMobileDrawers();
+            } else {
+                document.body.classList.add('drawer-settings-open');
+                document.body.classList.remove('drawer-chars-open');
+                if (backdrop) backdrop.hidden = false;
+            }
+        }
+    }
+
+    function closeMobileDrawers() {
+        document.body.classList.remove('drawer-chars-open', 'drawer-settings-open');
+        const backdrop = document.getElementById('mobileDrawerBackdrop');
+        if (backdrop) backdrop.hidden = true;
+        closeMobileMoreMenu();
+    }
+
+    function updateMobileCharChip(character) {
+        const nameEl = document.getElementById('mobileCharName');
+        const avatarEl = document.getElementById('mobileCharAvatar');
+        if (!nameEl || !avatarEl) return;
+        if (!character) {
+            nameEl.textContent = '点这里选角色';
+            avatarEl.textContent = '🎭';
+            return;
+        }
+        nameEl.textContent = character.name || '角色';
+        if (character.avatar && String(character.avatar).includes('http')) {
+            avatarEl.innerHTML = `<img src="${escapeHtml(character.avatar)}" alt="">`;
+        } else {
+            avatarEl.textContent = character.avatar || '🎭';
+        }
+    }
+
+    function restoreStickerExportSettings() {
+        const folderInput = document.getElementById('stickerExportFolderPath');
+        const presetSelect = document.getElementById('stickerFramePreset');
+        const savedFolder = localStorage.getItem(STICKER_EXPORT_FOLDER_KEY)
+            || localStorage.getItem(EXPORT_FOLDER_STORAGE_KEY)
+            || '';
+        if (folderInput && savedFolder) folderInput.value = savedFolder;
+        const savedPreset = localStorage.getItem(STICKER_FRAME_PRESET_KEY) || 'paper-collage';
+        if (presetSelect && [...presetSelect.options].some((o) => o.value === savedPreset)) {
+            presetSelect.value = savedPreset;
+        }
+    }
+
+    function saveStickerExportSettings() {
+        const preset = document.getElementById('stickerFramePreset')?.value || 'paper-collage';
+        const folder = document.getElementById('stickerExportFolderPath')?.value?.trim() || '';
+        localStorage.setItem(STICKER_FRAME_PRESET_KEY, preset);
+        if (folder) {
+            localStorage.setItem(STICKER_EXPORT_FOLDER_KEY, folder);
+            localStorage.setItem(EXPORT_FOLDER_STORAGE_KEY, folder);
+        }
+    }
+
+    function onStickerExportFolderInput() {
+        stickerExportDirHandle = null;
+        saveStickerExportSettings();
+    }
+
+    async function pickStickerExportFolder() {
+        if (!('showDirectoryPicker' in window)) {
+            alert('当前浏览器不支持文件夹选择，请手动粘贴完整路径（如 D:\\素材\\角色导出）');
+            document.getElementById('stickerExportFolderPath')?.focus();
+            return;
+        }
+        try {
+            stickerExportDirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+            const input = document.getElementById('stickerExportFolderPath');
+            if (input) input.value = stickerExportDirHandle.name;
+            localStorage.setItem(STICKER_EXPORT_FOLDER_KEY, stickerExportDirHandle.name);
+            localStorage.setItem(EXPORT_FOLDER_STORAGE_KEY, stickerExportDirHandle.name);
+        } catch (e) {
+            if (e.name !== 'AbortError') alert('选择文件夹失败: ' + e.message);
+        }
+    }
+
+    function restoreSettingsCollapsed() {
+        const collapsed = localStorage.getItem(SETTINGS_COLLAPSED_KEY) === '1';
+        setSettingsCollapsed(collapsed);
+    }
+
+    function setSettingsCollapsed(collapsed) {
+        const app = document.querySelector('.app-container');
+        if (!app) return;
+        app.classList.toggle('settings-collapsed', Boolean(collapsed));
+        localStorage.setItem(SETTINGS_COLLAPSED_KEY, collapsed ? '1' : '0');
+        const btn = document.getElementById('btnToggleSettings');
+        if (btn) btn.textContent = collapsed ? '⚙️ 展开配置' : '⚙️ 收起配置';
+        const sideBtn = document.querySelector('.settings-collapse-btn');
+        if (sideBtn) sideBtn.textContent = collapsed ? '‹ 展开' : '收起 ›';
+    }
+
+    function toggleSettingsCollapsed() {
+        if (document.body.classList.contains('mobile-shell')) {
+            toggleMobileDrawer('settings');
+            return;
+        }
+        const app = document.querySelector('.app-container');
+        setSettingsCollapsed(!app?.classList.contains('settings-collapsed'));
+    }
+
+    function canvasToPngBlob(canvas) {
+        return new Promise((resolve, reject) => {
+            canvas.toBlob((blob) => {
+                if (blob) resolve(blob);
+                else reject(new Error('PNG 编码失败'));
+            }, 'image/png');
+        });
+    }
+
+    async function exportChatImageSticker(messageIndex) {
+        if (typeof StickerFrame === 'undefined') {
+            alert('边框脚本未加载，请强制刷新（Ctrl+F5）后重试');
+            return;
+        }
+        const msg = characterChatMessages[messageIndex];
+        if (!msg || !msg.imageUrl || msg.imageStatus !== 'ready') {
+            alert('这张配图还不能导出');
+            return;
+        }
+
+        const folderPath = document.getElementById('stickerExportFolderPath')?.value?.trim() || '';
+        if (!stickerExportDirHandle && !folderPath) {
+            alert('请先在右侧「配置贴纸 → 小红书边框导出」里设置导出文件夹');
+            setSettingsCollapsed(false);
+            document.getElementById('stickerExportFolderPath')?.focus();
+            return;
+        }
+
+        const preset = document.getElementById('stickerFramePreset')?.value || 'paper-collage';
+        let filename;
+
+        const buttons = document.querySelectorAll(`[data-sticker-export="${messageIndex}"]`);
+        buttons.forEach((b) => { b.disabled = true; b.textContent = '导出中…'; });
+
+        try {
+            const img = await loadImageForExport(msg.imageUrl);
+            const rendered = StickerFrame.renderStickerFrameSafe
+                ? StickerFrame.renderStickerFrameSafe(img, {
+                    preset,
+                    caption: '',
+                    glassBg: (preset === 'paper-collage' || preset === 'apple-glass') ? true : undefined,
+                    previewMaxWidth: 0,
+                    outputWidth: 0
+                })
+                : {
+                    canvas: StickerFrame.renderStickerFrame(img, {
+                        preset,
+                        caption: '',
+                        glassBg: (preset === 'paper-collage' || preset === 'apple-glass') ? true : undefined,
+                        previewMaxWidth: 0,
+                        outputWidth: 0
+                    }),
+                    degraded: false,
+                    reason: ''
+                };
+            const canvas = rendered.canvas;
+            if (rendered.reason === 'still_corrupt') {
+                throw new Error('边框渲染异常（下半发黑）。请换较小边框预设，或到「加框」页用原图重新导出。');
+            }
+            const blob = await canvasToPngBlob(canvas);
+
+            if (stickerExportDirHandle) {
+                const perm = await stickerExportDirHandle.requestPermission({ mode: 'readwrite' });
+                if (perm !== 'granted') throw new Error('没有写入所选文件夹的权限');
+                const seq = await nextNumberedPngSeqFromHandle(stickerExportDirHandle);
+                filename = formatNumberedPngName(seq);
+                await saveBlobToPickedDir(stickerExportDirHandle, filename, blob);
+                alert(`已导出小红书边框图：\n${stickerExportDirHandle.name}\\${filename}`);
+            } else {
+                const dataUrl = canvas.toDataURL('image/png');
+                const res = await fetch('/api/export-image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ folderPath, name: 'auto', data: dataUrl, autoNumber: true })
+                });
+                const result = await res.json().catch(() => ({}));
+                if (!res.ok || !result.ok) {
+                    throw new Error(result.error || `导出失败 (${res.status})`);
+                }
+                filename = result.saved;
+                localStorage.setItem(STICKER_EXPORT_FOLDER_KEY, folderPath);
+                alert(`已导出小红书边框图：\n${result.folderPath || folderPath}\\${filename}`);
+            }
+        } catch (e) {
+            console.error(e);
+            alert('导出失败: ' + e.message);
+        } finally {
+            buttons.forEach((b) => { b.disabled = false; b.textContent = '导出小红书边框'; });
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        initMobileShell();
+        loadCharacters();
+        toggleProviderSettings();
+        loadWorkflowOptions();
+        restoreStickerExportSettings();
+        restoreSettingsCollapsed();
+
+        // Setup Character Chat Enter Key
+        document.getElementById('charChatInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendCharacterMessage();
+            }
+        });
+    });
+
+    // --- Model Settings ---
+    function toggleProviderSettings() {
+        const provider = document.getElementById('provider').value;
+        const doubaoInfo = document.getElementById('doubaoInfo');
+        const genericSettings = document.getElementById('genericSettings');
+        const refreshBtn = document.getElementById('refreshModelsBtn');
+        const apiKeyGroup = document.getElementById('apiKeyGroup');
+        const baseUrl = document.getElementById('baseUrl');
+
+        if (provider === 'doubao') {
+            doubaoInfo.classList.remove('hidden');
+            genericSettings.classList.add('hidden');
+            genericSettings.style.display = 'none';
+        } else {
+            doubaoInfo.classList.add('hidden');
+            genericSettings.classList.remove('hidden');
+            genericSettings.style.display = 'contents';
+            
+            if (provider === 'ollama') {
+                apiKeyGroup.classList.add('hidden');
+                refreshBtn.classList.remove('hidden');
+                const current = baseUrl.value.trim();
+                if (!/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(current)) {
+                    baseUrl.value = 'http://localhost:11434';
+                }
+                renderModelInput('loading');
+                fetchOllamaModels();
+            } else if (provider === 'deepseek') {
+                apiKeyGroup.classList.add('hidden');
+                refreshBtn.classList.add('hidden');
+                baseUrl.value = 'https://api.deepseek.com';
+                renderModelInput('input', [], 'deepseek-v4-flash');
+            } else {
+                apiKeyGroup.classList.remove('hidden');
+                refreshBtn.classList.add('hidden');
+                baseUrl.value = 'https://api.openai.com/v1';
+                renderModelInput('input');
+            }
+        }
+    }
+
+    function checkpointLabel(name) {
+        const map = {
+            'unholyDesireMixSinister_v70.safetensors': 'Unholy Desire Mix Sinister V70',
+            'unholyDesireMixSinister_v50.safetensors': 'Unholy Desire Mix Sinister V50'
+        };
+        return map[name] || name;
+    }
+
+    let workflowDefaultsCache = null;
+    let workflowOptionsCache = null;
+
+    async function fetchWorkflowPersistState() {
+        try {
+            const res = await fetch('/api/comfy/workflow-settings');
+            if (!res.ok) throw new Error('load failed');
+            workflowPersistState = await res.json();
+            if (!Array.isArray(workflowPersistState.presets)) workflowPersistState.presets = [];
+            if (!workflowPersistState.activePresetId) workflowPersistState.activePresetId = '';
+        } catch (e) {
+            console.warn('Failed to load workflow settings from server', e);
+        }
+        return workflowPersistState;
+    }
+
+    async function persistWorkflowStateNow(state = workflowPersistState) {
+        clearTimeout(workflowPersistSaveTimer);
+        try {
+            const res = await fetch('/api/comfy/workflow-settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(state)
+            });
+            if (res.ok) workflowPersistState = await res.json();
+        } catch (e) {
+            console.warn('Failed to save workflow settings', e);
+        }
+    }
+
+    function schedulePersistWorkflowState() {
+        clearTimeout(workflowPersistSaveTimer);
+        workflowPersistSaveTimer = setTimeout(() => persistWorkflowStateNow(), 400);
+    }
+
+    async function migrateWorkflowFromLocalStorageOnce() {
+        if (sessionStorage.getItem('comfyWorkflowMigrated')) return;
+        sessionStorage.setItem('comfyWorkflowMigrated', '1');
+        const hasServer = workflowPersistState.settings
+            || (workflowPersistState.presets && workflowPersistState.presets.length);
+        if (hasServer) return;
+        try {
+            let changed = false;
+            const settingsRaw = localStorage.getItem(WF_LOCAL_SETTINGS_KEY);
+            const presetsRaw = localStorage.getItem(WF_LOCAL_PRESETS_KEY);
+            const activeId = localStorage.getItem(WF_ACTIVE_PRESET_KEY);
+            if (settingsRaw) {
+                workflowPersistState.settings = JSON.parse(settingsRaw);
+                changed = true;
+            }
+            if (presetsRaw) {
+                workflowPersistState.presets = JSON.parse(presetsRaw);
+                changed = true;
+            }
+            if (activeId) {
+                workflowPersistState.activePresetId = activeId;
+                changed = true;
+            }
+            if (changed) await persistWorkflowStateNow();
+        } catch (e) {
+            console.warn('localStorage workflow migration failed', e);
+        }
+    }
+
+    function loadWorkflowPresets() {
+        return workflowPersistState.presets || [];
+    }
+
+    function getWorkflowOptionsForApply() {
+        if (workflowOptionsCache) return workflowOptionsCache;
+        return {
+            checkpoints: Array.from(document.getElementById('comfyCheckpoint')?.options || []).map((o) => o.value),
+            loras: [1, 2, 3].flatMap((i) =>
+                Array.from(document.getElementById(`wfLora${i}Name`)?.options || [])
+                    .map((o) => o.value)
+                    .filter((v) => v && v !== '(none)')
+            ),
+            samplerOptions: Array.from(document.getElementById('wfSampler')?.options || []).map((o) => o.value),
+            schedulerOptions: Array.from(document.getElementById('wfScheduler')?.options || []).map((o) => o.value)
+        };
+    }
+
+    function renderWorkflowPresetSelect() {
+        const sel = document.getElementById('wfPresetSelect');
+        if (!sel) return;
+        const presets = loadWorkflowPresets();
+        const active = workflowPersistState.activePresetId || '';
+        const options = ['<option value="">— 手动调整 —</option>']
+            .concat(presets.map((p) =>
+                `<option value="${escapeHtml(p.id)}"${p.id === active ? ' selected' : ''}>${escapeHtml(p.name)}</option>`
+            ));
+        sel.innerHTML = options.join('');
+    }
+
+    function applyWorkflowPreset(presetId) {
+        if (!presetId) {
+            workflowPersistState.activePresetId = '';
+            persistWorkflowStateNow();
+            return;
+        }
+        const preset = loadWorkflowPresets().find((p) => p.id === presetId);
+        if (!preset?.settings) return;
+        workflowPersistState.activePresetId = presetId;
+        applyWorkflowSettingsToForm(preset.settings, getWorkflowOptionsForApply());
+        workflowPersistState.settings = readWorkflowSettingsFromForm();
+        persistWorkflowStateNow();
+    }
+
+    async function saveNewWorkflowPreset() {
+        const name = prompt('预设名称（例如：纱雾日常 / 高清竖图 / 写实风）');
+        if (!name || !name.trim()) return;
+        const presets = loadWorkflowPresets();
+        const id = `wfp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        presets.push({
+            id,
+            name: name.trim(),
+            settings: readWorkflowSettingsFromForm(),
+            updatedAt: Date.now()
+        });
+        workflowPersistState.presets = presets;
+        workflowPersistState.activePresetId = id;
+        await persistWorkflowStateNow();
+        renderWorkflowPresetSelect();
+        const sel = document.getElementById('wfPresetSelect');
+        if (sel) sel.value = id;
+    }
+
+    async function updateWorkflowPreset() {
+        const sel = document.getElementById('wfPresetSelect');
+        const id = sel?.value;
+        if (!id) {
+            alert('请先从下拉框选择一个预设，或点「＋ 存预设」新建');
+            return;
+        }
+        const presets = loadWorkflowPresets();
+        const idx = presets.findIndex((p) => p.id === id);
+        if (idx < 0) return;
+        if (!confirm(`用当前参数覆盖预设「${presets[idx].name}」？`)) return;
+        presets[idx].settings = readWorkflowSettingsFromForm();
+        presets[idx].updatedAt = Date.now();
+        workflowPersistState.presets = presets;
+        await persistWorkflowStateNow();
+        alert('预设已更新');
+    }
+
+    async function deleteWorkflowPreset() {
+        const sel = document.getElementById('wfPresetSelect');
+        const id = sel?.value;
+        if (!id) {
+            alert('请先选择要删除的预设');
+            return;
+        }
+        const presets = loadWorkflowPresets();
+        const preset = presets.find((p) => p.id === id);
+        if (!preset) return;
+        if (!confirm(`删除预设「${preset.name}」？`)) return;
+        workflowPersistState.presets = presets.filter((p) => p.id !== id);
+        if (workflowPersistState.activePresetId === id) {
+            workflowPersistState.activePresetId = '';
+        }
+        await persistWorkflowStateNow();
+        renderWorkflowPresetSelect();
+    }
+
+    function toggleHiresFields() {
+        const on = document.getElementById('wfEnableHires')?.checked;
+        const box = document.getElementById('hiresFields');
+        if (box) box.style.display = on ? 'grid' : 'none';
+    }
+
+    function toggleUpscaleFields() {
+        const on = document.getElementById('wfEnableUpscale')?.checked;
+        const box = document.getElementById('upscaleFields');
+        if (box) box.style.display = on ? 'grid' : 'none';
+    }
+
+    function fillSelect(el, values, selected, labels) {
+        if (!el) return;
+        const opts = values.map((v) => {
+            const label = (labels && labels[v]) || v;
+            return `<option value="${escapeHtml(v)}"${v === selected ? ' selected' : ''}>${escapeHtml(label)}</option>`;
+        }).join('');
+        el.innerHTML = opts;
+        if (selected) el.value = selected;
+    }
+
+    function readWorkflowSettingsFromForm() {
+        const lora = (i) => ({
+            name: document.getElementById(`wfLora${i}Name`)?.value || '',
+            strengthModel: Number(document.getElementById(`wfLora${i}Model`)?.value),
+            strengthClip: Number(document.getElementById(`wfLora${i}Clip`)?.value)
+        });
+        return {
+            checkpointName: document.getElementById('comfyCheckpoint')?.value || '',
+            width: Number(document.getElementById('wfWidth')?.value),
+            height: Number(document.getElementById('wfHeight')?.value),
+            steps: Number(document.getElementById('wfSteps')?.value),
+            cfg: Number(document.getElementById('wfCfg')?.value),
+            sampler: document.getElementById('wfSampler')?.value || '',
+            scheduler: document.getElementById('wfScheduler')?.value || '',
+            denoise: Number(document.getElementById('wfDenoise')?.value),
+            seed: Number(document.getElementById('wfSeed')?.value),
+            enableHires: Boolean(document.getElementById('wfEnableHires')?.checked),
+            hiresWidth: Number(document.getElementById('wfHiresWidth')?.value),
+            hiresHeight: Number(document.getElementById('wfHiresHeight')?.value),
+            hiresDenoise: Number(document.getElementById('wfHiresDenoise')?.value),
+            hiresSteps: Number(document.getElementById('wfHiresSteps')?.value),
+            enableUpscale: Boolean(document.getElementById('wfEnableUpscale')?.checked),
+            upscaleModel: document.getElementById('wfUpscaleModel')?.value || '2x_Ani4Kv2_G6i2_Compact_107500.pth',
+            negativePrompt: document.getElementById('wfNegative')?.value || '',
+            loras: [lora(1), lora(2), lora(3)]
+        };
+    }
+
+    function applyWorkflowSettingsToForm(settings, options = {}) {
+        if (!settings) return;
+        const setVal = (id, v) => {
+            const el = document.getElementById(id);
+            if (el != null && v != null) el.value = v;
+        };
+        if (options.checkpoints) {
+            fillSelect(
+                document.getElementById('comfyCheckpoint'),
+                options.checkpoints,
+                settings.checkpointName,
+                Object.fromEntries(options.checkpoints.map((n) => [n, checkpointLabel(n)]))
+            );
+        } else {
+            setVal('comfyCheckpoint', settings.checkpointName);
+        }
+        if (options.samplerOptions) {
+            fillSelect(document.getElementById('wfSampler'), options.samplerOptions, settings.sampler);
+        } else {
+            setVal('wfSampler', settings.sampler);
+        }
+        if (options.schedulerOptions) {
+            fillSelect(document.getElementById('wfScheduler'), options.schedulerOptions, settings.scheduler);
+        } else {
+            setVal('wfScheduler', settings.scheduler);
+        }
+        const loraNames = ['(none)', ...((options.loras || []).filter(Boolean))];
+        for (let i = 1; i <= 3; i++) {
+            const lora = (settings.loras && settings.loras[i - 1]) || {};
+            const names = loraNames.includes(lora.name) || !lora.name ? loraNames : [lora.name, ...loraNames];
+            fillSelect(document.getElementById(`wfLora${i}Name`), names, lora.name || '(none)');
+            setVal(`wfLora${i}Model`, lora.strengthModel);
+            setVal(`wfLora${i}Clip`, lora.strengthClip);
+        }
+        setVal('wfWidth', settings.width);
+        setVal('wfHeight', settings.height);
+        setVal('wfSteps', settings.steps);
+        setVal('wfCfg', settings.cfg);
+        setVal('wfDenoise', settings.denoise);
+        setVal('wfSeed', settings.seed);
+        const hires = document.getElementById('wfEnableHires');
+        if (hires) hires.checked = Boolean(settings.enableHires);
+        setVal('wfHiresWidth', settings.hiresWidth);
+        setVal('wfHiresHeight', settings.hiresHeight);
+        setVal('wfHiresDenoise', settings.hiresDenoise);
+        setVal('wfHiresSteps', settings.hiresSteps);
+        const upscale = document.getElementById('wfEnableUpscale');
+        if (upscale) upscale.checked = Boolean(settings.enableUpscale);
+        const upscaleModels = options.upscaleModels || [
+            settings.upscaleModel || '2x_Ani4Kv2_G6i2_Compact_107500.pth'
+        ];
+        fillSelect(
+            document.getElementById('wfUpscaleModel'),
+            upscaleModels,
+            settings.upscaleModel || upscaleModels[0] || ''
+        );
+        setVal('wfNegative', settings.negativePrompt);
+        toggleHiresFields();
+        toggleUpscaleFields();
+    }
+
+    function saveWorkflowSettings() {
+        workflowPersistState.settings = readWorkflowSettingsFromForm();
+        schedulePersistWorkflowState();
+    }
+
+    function loadSavedWorkflowSettings() {
+        return workflowPersistState.settings || null;
+    }
+
+    async function loadWorkflowOptions(isManual = false) {
+        try {
+            await fetchWorkflowPersistState();
+            await migrateWorkflowFromLocalStorageOnce();
+            const res = await fetch('/api/comfy/workflow-options');
+            const data = await res.json();
+            let upscaleModels = ['2x_Ani4Kv2_G6i2_Compact_107500.pth'];
+            try {
+                const upRes = await fetch('/api/comfy/upscale-models');
+                const upData = await upRes.json();
+                if (Array.isArray(upData.models) && upData.models.length) {
+                    upscaleModels = upData.models;
+                }
+            } catch (_) {}
+            workflowDefaultsCache = data.defaults || null;
+            const saved = loadSavedWorkflowSettings();
+            const merged = { ...(data.defaults || {}), ...(saved || {}) };
+            if (!merged.checkpointName && saved?.checkpointName) merged.checkpointName = saved.checkpointName;
+            if (!merged.checkpointName) {
+                merged.checkpointName = data.defaults?.checkpointName;
+            }
+            if (merged.enableUpscale == null) merged.enableUpscale = false;
+            workflowOptionsCache = {
+                checkpoints: data.checkpoints || [merged.checkpointName],
+                loras: data.loras || [],
+                samplerOptions: data.defaults?.samplerOptions || [],
+                schedulerOptions: data.defaults?.schedulerOptions || [],
+                upscaleModels
+            };
+            applyWorkflowSettingsToForm(merged, workflowOptionsCache);
+            workflowPersistState.settings = readWorkflowSettingsFromForm();
+            schedulePersistWorkflowState();
+            renderWorkflowPresetSelect();
+            const activePresetId = workflowPersistState.activePresetId;
+            if (activePresetId) {
+                applyWorkflowPreset(activePresetId);
+            }
+            if (isManual) alert('出图参数列表已刷新');
+        } catch (e) {
+            console.error(e);
+            if (isManual) alert('刷新失败：' + e.message);
+        }
+    }
+
+    async function resetWorkflowSettings() {
+        if (!workflowDefaultsCache) {
+            await loadWorkflowOptions(true);
+            return;
+        }
+        applyWorkflowSettingsToForm(workflowDefaultsCache, {
+            checkpoints: Array.from(document.getElementById('comfyCheckpoint')?.options || []).map((o) => o.value),
+            loras: Array.from(document.getElementById('wfLora1Name')?.options || []).map((o) => o.value).filter((v) => v !== '(none)'),
+            samplerOptions: workflowDefaultsCache.samplerOptions || [],
+            schedulerOptions: workflowDefaultsCache.schedulerOptions || []
+        });
+        workflowPersistState.activePresetId = '';
+        workflowPersistState.settings = readWorkflowSettingsFromForm();
+        await persistWorkflowStateNow();
+        renderWorkflowPresetSelect();
+    }
+
+    function getSelectedCheckpoint() {
+        return document.getElementById('comfyCheckpoint')?.value || 'unholyDesireMixSinister_v70.safetensors';
+    }
+
+    function getWorkflowSettings() {
+        return readWorkflowSettingsFromForm();
+    }
+
+    async function fetchOllamaModels(isManual = false) {
+        const provider = document.getElementById('provider').value;
+        if (provider !== 'ollama') return;
+
+        const baseUrl = document.getElementById('baseUrl').value.trim();
+        const btn = document.getElementById('refreshModelsBtn');
+        
+        if (isManual && btn) btn.innerText = '...';
+        renderModelInput('loading');
+
+        try {
+            const res = await fetch(`/api/models?baseUrl=${encodeURIComponent(baseUrl)}`);
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || `HTTP ${res.status}`);
+            }
+            
+            if (data.models && data.models.length > 0) {
+                renderModelInput('select', data.models);
+                if (isManual) alert(`找到 ${data.models.length} 个模型`);
+            } else {
+                renderModelInput('empty');
+                if (isManual) alert('未找到模型，请先在 Ollama 中 pull 模型。');
+            }
+        } catch (e) {
+            console.error('[Ollama models]', e);
+            renderModelInput('error', [], e.message || '连接失败');
+            if (isManual) alert('无法连接 Ollama：' + (e.message || '请确认 Ollama 已启动'));
+        } finally {
+            if (isManual && btn) btn.innerText = '🔄 Refresh';
+        }
+    }
+
+    function renderModelInput(type, models = [], defaultValue = '') {
+        const container = document.getElementById('modelInputContainer');
+        if (!container) return;
+        const currentEl = document.getElementById('model');
+        const currentVal = currentEl ? currentEl.value : '';
+        const value = currentVal || defaultValue;
+
+        if (type === 'loading') {
+            container.innerHTML = '<select id="model" class="model-select" disabled><option>加载 Ollama 模型列表…</option></select>';
+            return;
+        }
+        if (type === 'empty') {
+            container.innerHTML = '<select id="model" class="model-select"><option value="">（无可用模型，请先 ollama pull）</option></select>';
+            return;
+        }
+        if (type === 'error') {
+            const msg = escapeHtml(defaultValue || '无法连接 Ollama');
+            container.innerHTML = `<select id="model" class="model-select"><option value="">${msg}</option></select>`;
+            return;
+        }
+        if (type === 'select') {
+            const options = models.map(m => `<option value="${escapeHtml(m)}"${m === value ? ' selected' : ''}>${escapeHtml(m)}</option>`).join('');
+            container.innerHTML = `<select id="model" class="model-select">${options}</select>`;
+            return;
+        }
+        container.innerHTML = `<input type="text" id="model" class="model-input" value="${escapeHtml(value)}" placeholder="Model name (e.g. gpt-4)">`;
+    }
+
+    // =========================================
+    // Character Chat Functions
+    // =========================================
+    
+    async function loadCharacters() {
+        const list = document.getElementById('charactersList');
+        try {
+            console.log('Loading characters from API...');
+            const res = await fetch('/api/characters');
+            if (!res.ok) {
+                throw new Error(`HTTP error! status: ${res.status}`);
+            }
+            characters = await res.json();
+            console.log('Characters loaded:', characters);
+            renderCharactersList();
+        } catch (e) {
+            console.error('Failed to load characters', e);
+            list.innerHTML = 
+                `<div style="text-align:center; padding:20px;">
+                    <div style="color:#ef4444; font-size:12px; margin-bottom:8px;">加载失败</div>
+                    <div style="color:#94a3b8; font-size:11px;">${e.message}</div>
+                    <button onclick="loadCharacters()" style="margin-top:10px; padding:6px 12px; background:rgba(139,92,246,0.2); border:none; border-radius:6px; color:#a78bfa; cursor:pointer;">重试</button>
+                </div>`;
+        }
+    }
+    
+    function renderCharactersList() {
+        const list = document.getElementById('charactersList');
+        console.log('Rendering characters list, characters:', characters);
+        
+        if (!characters || characters.length === 0) {
+            list.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:20px; font-size:12px;">暂无角色</div>';
+            return;
+        }
+        
+        try {
+            list.innerHTML = characters.map((char, index) => `
+                <div class="character-item sticker-card tilt-${index % 2 === 0 ? 'l' : 'r'} ${currentCharacter && currentCharacter.id === char.id ? 'selected' : ''}" onclick="selectCharacter('${char.id}')">
+                    <div class="sticker-tape ${index % 3 === 0 ? 'warm' : ''}"></div>
+                    <div class="character-card-body">
+                        <span class="character-avatar">
+                            ${char.avatar && (char.avatar.startsWith('http') || char.avatar.includes('/')) ? 
+                                `<img src="${escapeHtml(char.avatar)}" alt="">` : 
+                                escapeHtml(char.avatar || '👤')
+                            }
+                        </span>
+                        <div class="character-info">
+                            <div class="character-name">${escapeHtml(char.name || '未命名角色')}</div>
+                            <div class="character-desc">${escapeHtml(char.description || '')}</div>
+                        </div>
+                    </div>
+                    <div class="character-card-actions" onclick="event.stopPropagation()">
+                        <button type="button" class="btn-icon preset-edit" onclick="editCharacter(event, '${char.id}')" title="编辑">✎</button>
+                        <button type="button" class="btn-icon preset-delete" onclick="deleteCharacter(event, '${char.id}')" title="删除">×</button>
+                    </div>
+                </div>
+            `).join('');
+            console.log('Characters list rendered successfully');
+        } catch (e) {
+            console.error('Error rendering characters list:', e);
+            list.innerHTML = `<div style="text-align:center; padding:20px; color:#ef4444; font-size:12px;">渲染失败: ${e.message}</div>`;
+        }
+    }
+    
+    function toggleSystemPrompt() {
+        if (!currentCharacter) {
+            alert('请先选择一个角色');
+            return;
+        }
+        const existing = document.getElementById('systemPromptModal');
+        if (existing) {
+            existing.remove();
+            return;
+        }
+        const promptText = currentCharacter.systemPrompt || '(空)';
+        const modal = document.createElement('div');
+        modal.id = 'systemPromptModal';
+        modal.className = 'system-prompt-modal';
+        modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+        modal.innerHTML = `
+            <div class="system-prompt-sheet sticker" onclick="event.stopPropagation()">
+                <div class="tape warm"></div>
+                <div class="system-prompt-head">
+                    <h3>原始提示词 · ${escapeHtml(currentCharacter.name || '')}</h3>
+                    <button type="button" class="btn-icon" onclick="document.getElementById('systemPromptModal').remove()" title="关闭">✕</button>
+                </div>
+                <textarea readonly class="system-prompt-body">${escapeHtml(promptText)}</textarea>
+                <div class="ticket">SYSTEM PROMPT · READ ONLY</div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    async function selectCharacter(characterId) {
+        // Leaving a character: keep server jobs running, only drop local SSE handles
+        closeChatTurnStream();
+        for (const jobId of [...imageJobStreams.keys()]) {
+            closeImageJobStream(jobId);
+        }
+        activeChatTurn = null;
+
+        currentCharacter = characters.find(c => c.id === characterId);
+        if (!currentCharacter) return;
+        
+        // Update UI
+        document.getElementById('currentCharAvatar').innerHTML = currentCharacter.avatar.includes('http') ? 
+            `<img src="${currentCharacter.avatar}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">` : 
+            currentCharacter.avatar;
+        document.getElementById('currentCharName').innerText = currentCharacter.name;
+        document.getElementById('currentCharDesc').innerText = currentCharacter.description;
+        const baseEl = document.getElementById('currentCharBase');
+        if (baseEl) {
+            const baseBits = [currentCharacter.appearancePrompt, currentCharacter.outfitPrompt].filter(Boolean);
+            baseEl.innerText = baseBits.length ? ('底模：' + baseBits.join(' / ')) : '底模未设置，请编辑角色并填写特征提示词';
+        }
+        
+        // Update system prompt display
+        document.getElementById('currentSystemPrompt').value = currentCharacter.systemPrompt;
+        loadForcePromptForCharacter(characterId);
+        
+        // Load chat history
+        try {
+            const res = await fetch(`/api/chat-history/${characterId}`);
+            const historyData = await res.json();
+            characterChatMessages = (historyData.messages || []).map((m) => ({
+                ...m,
+                id: m.id || makeMessageId()
+            }));
+            turnMemory = normalizeTurnMemory(historyData.turnMemory || historyData.emotionHistory || []);
+            conversationSummary = historyData.summary || '';
+            lastVisualCache = null;
+            getLastVisualContext(); // warm cache from loaded history
+        } catch (e) {
+            characterChatMessages = [];
+            turnMemory = [];
+            conversationSummary = '';
+        }
+        
+        // Render chat
+        renderCharacterChat();
+        renderCharactersList(); // Update selection highlight
+        updateMobileCharChip(currentCharacter);
+        if (isMobileShellActive()) closeMobileDrawers();
+
+        await restoreRoleplayInFlight(characterId);
+        
+        // Scroll to bottom
+        setTimeout(() => {
+            const history = document.getElementById('charChatHistory');
+            history.scrollTop = history.scrollHeight;
+        }, 100);
+    }
+
+    /**
+     * After refresh / leave-and-return: reconnect to in-flight chat turn + image jobs.
+     * Backend jobs keep running; the UI just lost the SSE subscription and ephemeral state.
+     */
+    async function restoreRoleplayInFlight(characterId) {
+        if (!characterId || !currentCharacter || currentCharacter.id !== characterId) return;
+
+        const session = loadRoleplaySession(characterId);
+        let turnId = session?.turnId || '';
+        let userText = session?.userText || '';
+        let previousVisual = session?.previousVisual || null;
+
+        // Prefer live server turn over stale localStorage
+        try {
+            const activeRes = await fetch(`/api/chat-turn/active?characterId=${encodeURIComponent(characterId)}`);
+            const activeData = await activeRes.json();
+            if (activeData.ok && activeData.turn?.id) {
+                turnId = activeData.turn.id;
+                if (!userText) {
+                    const msgs = characterChatMessages.filter((m) => m.role === 'user');
+                    userText = msgs.length ? msgs[msgs.length - 1].content : '';
+                }
+                if (!previousVisual) previousVisual = getLastVisualContext();
+            }
+        } catch (_) {}
+
+        if (turnId) {
+            try {
+                const res = await fetch(`/api/chat-turn/${encodeURIComponent(turnId)}`);
+                const data = await res.json();
+                if (res.ok && data.ok && data.turn) {
+                    const turn = data.turn;
+                    if (turn.status === 'queued' || turn.status === 'running') {
+                        if (!userText) {
+                            const msgs = characterChatMessages.filter((m) => m.role === 'user');
+                            userText = msgs.length ? msgs[msgs.length - 1].content : '';
+                        }
+                        activeChatTurn = {
+                            turnId,
+                            phase: turn.phase || 'starting',
+                            thinkingText: turn.thinkingText || '',
+                            replyText: turn.replyText || '',
+                            thinkingOpen: false
+                        };
+                        renderCharacterChat();
+                        subscribeChatTurnStream(turnId, userText, previousVisual || getLastVisualContext());
+                    } else if (turn.status === 'completed' && turn.result) {
+                        // Turn finished while UI was away — finalize into history + kick image if needed
+                        const last = characterChatMessages[characterChatMessages.length - 1];
+                        const alreadyFinalized = last?.role === 'assistant'
+                            && String(last.content || '') === String(turn.result.reply || '');
+                        if (!alreadyFinalized) {
+                            finalizeChatTurnResult(
+                                turn.result,
+                                userText,
+                                turn.thinkingText || '',
+                                previousVisual || getLastVisualContext()
+                            );
+                        }
+                        clearRoleplaySession(characterId);
+                    } else if (turn.status === 'failed') {
+                        clearRoleplaySession(characterId);
+                    }
+                } else if (res.status === 404) {
+                    clearRoleplaySession(characterId);
+                }
+            } catch (e) {
+                console.warn('[restore] chat turn reconnect failed', e);
+            }
+        }
+
+        // Reattach image jobs for messages still pending / missing result
+        for (const msg of characterChatMessages) {
+            if (msg.role !== 'assistant') continue;
+            if (msg.imageUrl && msg.imageStatus === 'ready') continue;
+
+            const looksPending = ['queued', 'pending', 'running', 'waiting_vram', ''].includes(msg.imageStatus || '')
+                || Boolean(msg.imageJobId);
+            if (!looksPending && msg.imageStatus !== 'failed') continue;
+
+            let jobId = msg.imageJobId || '';
+            if (!jobId && msg.id) {
+                try {
+                    const byMsg = await fetch(`/api/image-jobs/by-message/${encodeURIComponent(msg.id)}`);
+                    const byData = await byMsg.json();
+                    if (byData.ok && byData.job?.id) {
+                        jobId = byData.job.id;
+                        msg.imageJobId = jobId;
+                    }
+                } catch (_) {}
+            }
+
+            if (!jobId) continue;
+
+            try {
+                const jobRes = await fetch(`/api/image-jobs/${encodeURIComponent(jobId)}`);
+                const jobData = await jobRes.json();
+                if (!jobRes.ok || !jobData.ok || !jobData.job) {
+                    if (jobRes.status === 404) msg.imageJobId = '';
+                    continue;
+                }
+                const job = jobData.job;
+                msg.imageJobId = job.id;
+                if (job.status === 'completed' && job.result) {
+                    applyImageJobResult(msg, job.result);
+                    renderCharacterChat();
+                    await saveChatHistory();
+                } else if (job.status === 'failed') {
+                    msg.imageStatus = 'failed';
+                    msg.imageError = job.error || '出图失败';
+                    renderCharacterChat();
+                    await saveChatHistory();
+                } else {
+                    msg.imageStatus = job.status === 'queued' ? 'queued' : 'running';
+                    renderCharacterChat();
+                    subscribeImageJobStream(job.id, msg.id);
+                }
+            } catch (e) {
+                console.warn('[restore] image job reconnect failed', e);
+            }
+        }
+
+        // Also pick up active jobs not yet linked in saved history (race: left before imageJobId saved)
+        try {
+            const activeImg = await fetch(`/api/image-jobs/active?characterId=${encodeURIComponent(characterId)}`);
+            const activeImgData = await activeImg.json();
+            if (activeImgData.ok && Array.isArray(activeImgData.jobs)) {
+                for (const job of activeImgData.jobs) {
+                    if (!job.messageId || !job.id) continue;
+                    const msg = characterChatMessages.find((m) => m.id === job.messageId);
+                    if (!msg) continue;
+                    if (msg.imageUrl && msg.imageStatus === 'ready') continue;
+                    msg.imageJobId = job.id;
+                    msg.imageStatus = job.status === 'queued' ? 'queued' : 'running';
+                    renderCharacterChat();
+                    if (!imageJobStreams.has(job.id)) {
+                        subscribeImageJobStream(job.id, msg.id);
+                    }
+                    await saveChatHistory();
+                }
+            }
+        } catch (_) {}
+    }
+    
+    function chatTurnPhaseLabel(phase) {
+        switch (phase) {
+            case 'queued':
+            case 'starting':
+                return '准备中…';
+            case 'emotion_analyzing':
+                return '分析情绪中…';
+            case 'outfit_analyzing':
+                return '分析服饰与分镜中…';
+            case 'reply_generating':
+                return '生成回复中…';
+            case 'parsing_visual':
+                return '整理出图信息…';
+            case 'done':
+                return '完成';
+            case 'error':
+                return '出错了';
+            default:
+                return '思考中…';
+        }
+    }
+
+    function preserveThinkingFoldOpen() {
+        if (!activeChatTurn) return;
+        const fold = document.querySelector('.streaming-turn .thinking-fold');
+        if (fold) activeChatTurn.thinkingOpen = fold.open;
+    }
+
+    function buildStreamingBubbleHtml(turn) {
+        const phaseLine = turn.replyText
+            ? ''
+            : `<div class="stream-phase">${escapeHtml(chatTurnPhaseLabel(turn.phase))}</div>`;
+        const thinkingBlock = turn.thinkingText
+            ? `<details class="thinking-fold"${turn.thinkingOpen ? ' open' : ''}><summary>思考过程</summary><pre class="thinking-text">${escapeHtml(turn.thinkingText)}</pre></details>`
+            : '';
+        const replyBlock = turn.replyText
+            ? `<div class="stream-reply">${escapeHtml(turn.replyText).replace(/\n/g, '<br>')}</div>`
+            : `<div class="stream-reply"></div>`;
+        return `
+            <div class="message ai streaming-turn" id="active-stream-bubble">
+                ${phaseLine}
+                ${thinkingBlock}
+                ${replyBlock}
+            </div>
+        `;
+    }
+
+    function closeChatTurnStream() {
+        if (activeChatTurnStream) {
+            activeChatTurnStream.close();
+            activeChatTurnStream = null;
+        }
+    }
+
+    function finalizeChatTurnResult(data, userText, thinkingText, previousVisual) {
+        const debugInfo = data.debugInfo || {};
+        if (thinkingText) debugInfo.thinkingText = thinkingText;
+
+        const assistantId = makeMessageId();
+        const emotionBlock = data.emotionAnalysis?.emotionAnalysis || data.emotionAnalysis || {};
+        const turnPromptFromChat = (data.visual && data.visual.prompt) ? data.visual.prompt : '';
+        rememberVisual(data.visual);
+        characterChatMessages.push({
+            id: assistantId,
+            role: 'assistant',
+            content: data.reply,
+            debugInfo,
+            emotionAnalysis: data.emotionAnalysis,
+            visual: data.visual || null,
+            imageTurnPrompt: turnPromptFromChat,
+            timing: data.timing,
+            imageStatus: 'queued',
+            imageJobId: ''
+        });
+        console.log('[continuity] previousVisual sent:', previousVisual);
+        console.log('[continuity] new visual cached:', data.visual || turnPromptFromChat || '(none)');
+
+        if (data.newTurnMemoryEntry) {
+            appendTurnMemoryEntry(data.newTurnMemoryEntry);
+        }
+
+        activeChatTurn = null;
+        closeChatTurnStream();
+        if (currentCharacter) clearRoleplaySession(currentCharacter.id);
+        renderCharacterChat();
+        saveChatHistory();
+        requestCharacterImage(assistantId, emotionBlock, data.reply, data.visual, previousVisual, userText);
+    }
+
+    function subscribeChatTurnStream(turnId, userText, previousVisual) {
+        closeChatTurnStream();
+        const es = new EventSource(`/api/chat-turn/${encodeURIComponent(turnId)}/stream`);
+        activeChatTurnStream = es;
+
+        const handleTurnDone = (data) => {
+            const thinkingText = activeChatTurn?.thinkingText || '';
+            finalizeChatTurnResult(data, userText, thinkingText, previousVisual);
+        };
+
+        const handleTurnError = (message) => {
+            activeChatTurn = {
+                turnId,
+                phase: 'error',
+                thinkingText: activeChatTurn?.thinkingText || '',
+                replyText: `Error: ${message}`,
+                thinkingOpen: activeChatTurn?.thinkingOpen
+            };
+            if (currentCharacter) clearRoleplaySession(currentCharacter.id);
+            closeChatTurnStream();
+            renderCharacterChat();
+        };
+
+        es.addEventListener('snapshot', (e) => {
+            try {
+                const snap = JSON.parse(e.data);
+                if (snap.status === 'completed' && snap.result) {
+                    handleTurnDone(snap.result);
+                    return;
+                }
+                if (snap.status === 'failed') {
+                    handleTurnError(snap.error || '对话生成失败');
+                    return;
+                }
+                preserveThinkingFoldOpen();
+                activeChatTurn = {
+                    turnId,
+                    phase: snap.phase || 'starting',
+                    thinkingText: snap.thinkingText || '',
+                    replyText: snap.replyText || '',
+                    thinkingOpen: activeChatTurn?.thinkingOpen
+                };
+                renderCharacterChat();
+            } catch (err) {
+                console.warn('[SSE] chat snapshot parse error', err);
+            }
+        });
+
+        es.addEventListener('phase', (e) => {
+            try {
+                const data = JSON.parse(e.data);
+                preserveThinkingFoldOpen();
+                if (activeChatTurn) activeChatTurn.phase = data.phase;
+                renderCharacterChat();
+            } catch (err) {
+                console.warn('[SSE] chat phase parse error', err);
+            }
+        });
+
+        es.addEventListener('thinking_delta', (e) => {
+            try {
+                const data = JSON.parse(e.data);
+                preserveThinkingFoldOpen();
+                if (activeChatTurn) activeChatTurn.thinkingText = data.accumulated || '';
+                renderCharacterChat();
+            } catch (err) {
+                console.warn('[SSE] thinking_delta parse error', err);
+            }
+        });
+
+        es.addEventListener('reply_delta', (e) => {
+            try {
+                const data = JSON.parse(e.data);
+                preserveThinkingFoldOpen();
+                if (activeChatTurn) {
+                    activeChatTurn.replyText = data.accumulated || '';
+                    activeChatTurn.phase = 'reply_generating';
+                }
+                renderCharacterChat();
+            } catch (err) {
+                console.warn('[SSE] reply_delta parse error', err);
+            }
+        });
+
+        es.addEventListener('turn_done', (e) => {
+            try {
+                handleTurnDone(JSON.parse(e.data));
+            } catch (err) {
+                console.warn('[SSE] turn_done parse error', err);
+            }
+        });
+
+        es.addEventListener('turn_error', (e) => {
+            try {
+                const data = JSON.parse(e.data);
+                handleTurnError(data.error || '对话生成失败');
+            } catch (err) {
+                console.warn('[SSE] turn_error parse error', err);
+            }
+        });
+
+        es.onerror = () => {
+            // EventSource auto-reconnects while turn is running
+        };
+    }
+
+    function rebuildVisualCacheFromHistory() {
+        lastVisualCache = null;
+        getLastVisualContext();
+    }
+
+    function isChatBusy() {
+        return Boolean(activeChatTurn);
+    }
+
+    /** Keep turnMemory aligned with remaining assistant replies after edit/truncate */
+    function syncTurnMemoryToMessages() {
+        const assistantCount = characterChatMessages.filter((m) => m.role === 'assistant').length;
+        if (turnMemory.length > assistantCount) {
+            turnMemory = turnMemory.slice(0, assistantCount);
+        }
+    }
+
+    function truncateChatFromIndex(index) {
+        characterChatMessages.slice(index).forEach((msg) => {
+            if (msg?.imageJobId) closeImageJobStream(msg.imageJobId);
+        });
+        closeChatTurnStream();
+        activeChatTurn = null;
+        if (currentCharacter) clearRoleplaySession(currentCharacter.id);
+        characterChatMessages = characterChatMessages.slice(0, index);
+        syncTurnMemoryToMessages();
+        rebuildVisualCacheFromHistory();
+        renderCharacterChat();
+        saveChatHistory();
+    }
+
+    function deleteMessageAt(index) {
+        if (isChatBusy()) {
+            alert('请等待当前回复完成后再操作');
+            return;
+        }
+        const msg = characterChatMessages[index];
+        if (!msg) return;
+
+        // 与常见聊天软件一致：删除某条 = 该条及之后全部丢掉
+        if (msg.role === 'user') {
+            if (!confirm('删除这条消息及之后的全部对话？')) return;
+            truncateChatFromIndex(index);
+            return;
+        }
+
+        if (!confirm('删除这条 AI 回复及之后的全部对话？')) return;
+        truncateChatFromIndex(index);
+    }
+
+    function editMessageAt(index) {
+        if (isChatBusy()) {
+            alert('请等待当前回复完成后再操作');
+            return;
+        }
+        const msg = characterChatMessages[index];
+        if (!msg || msg.role !== 'user') return;
+        truncateChatFromIndex(index);
+        const input = document.getElementById('charChatInput');
+        input.value = msg.content;
+        input.focus();
+    }
+
+    async function regenerateAssistantAt(index) {
+        if (isChatBusy()) {
+            alert('请等待当前回复完成后再操作');
+            return;
+        }
+        const msg = characterChatMessages[index];
+        if (!msg || msg.role !== 'assistant') return;
+        const userMsg = characterChatMessages[index - 1];
+        if (!userMsg || userMsg.role !== 'user') {
+            alert('找不到对应的用户消息');
+            return;
+        }
+        const hasLater = index < characterChatMessages.length - 1;
+        const tip = hasLater
+            ? '重新生成这条 AI 回复？其后的对话会被删除（与常见聊天软件一致）。'
+            : '重新生成这条 AI 回复？';
+        if (!confirm(tip)) return;
+        // 保留对应的用户消息，从本条 AI 回复起截断（含其后所有轮次）
+        truncateChatFromIndex(index);
+        await startChatTurn(userMsg.content, { skipPushUser: true });
+    }
+
+    function renderMessageActions(index, role) {
+        if (isChatBusy()) return '';
+        if (role === 'user') {
+            return `
+                <div class="message-actions">
+                    <button type="button" class="msg-action-btn" onclick="editMessageAt(${index})" title="编辑并重发">✎ 编辑</button>
+                    <button type="button" class="msg-action-btn msg-action-danger" onclick="deleteMessageAt(${index})" title="删除此条及之后">🗑 删除</button>
+                </div>
+            `;
+        }
+        return `
+            <div class="message-actions">
+                <button type="button" class="msg-action-btn" onclick="regenerateAssistantAt(${index})" title="重新生成回复">🔄 重生成</button>
+                <button type="button" class="msg-action-btn msg-action-danger" onclick="deleteMessageAt(${index})" title="删除此回复及之后">🗑 删除</button>
+            </div>
+        `;
+    }
+
+    function renderCharacterChat() {
+        const history = document.getElementById('charChatHistory');
+        
+        if (!currentCharacter) {
+            history.innerHTML = `
+                <div class="message ai chat-empty-hint" style="text-align: center; color: var(--text-muted);">
+                    点上方角色名或 👤 选择角色开始对话
+                </div>
+            `;
+            return;
+        }
+
+        if (characterChatMessages.length === 0) {
+            const avatarHtml = currentCharacter.avatar && String(currentCharacter.avatar).includes('http')
+                ? `<img src="${escapeHtml(currentCharacter.avatar)}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;">`
+                : escapeHtml(currentCharacter.avatar || '🎭');
+            history.innerHTML = `
+                <div class="message ai" style="text-align: center;">
+                    <div style="font-size: 48px; margin-bottom: 12px;">${avatarHtml}</div>
+                    <div style="font-weight: 600; margin-bottom: 8px;">${escapeHtml(currentCharacter.name || '')}</div>
+                    <div style="font-size: 13px; color: var(--text-muted); max-width: 400px; margin: 0 auto; line-height: 1.6;">
+                        ${escapeHtml(currentCharacter.description || '')}<br>
+                        性格：${escapeHtml(currentCharacter.personality || '')}<br><br>
+                        开始对话吧！✨
+                    </div>
+                </div>
+            `;
+            return;
+        }
+        
+        history.innerHTML = characterChatMessages.map((msg, index) => {
+            if (msg.role === 'user') {
+                return `
+                    <div class="message-wrap message-wrap-user">
+                        ${renderMessageActions(index, 'user')}
+                        <div class="message user">${escapeHtml(msg.content).replace(/\n/g, '<br>')}</div>
+                    </div>
+                `;
+            } else {
+                const canShowLog = Boolean(
+                    msg.debugInfo
+                    || msg.visual
+                    || msg.imagePrompt
+                    || msg.imageTurnPrompt
+                    || msg.timing
+                    || msg.emotionAnalysis
+                );
+                const emotion = msg.emotionAnalysis?.emotionAnalysis || msg.emotionAnalysis;
+                let imageBlock = '';
+                if (msg.imageStatus === 'failed') {
+                    imageBlock = `<div class="image-failed">配图失败${msg.imageError ? '：' + escapeHtml(msg.imageError) : ''}</div>`;
+                } else if (msg.imageUrl && msg.imageStatus === 'ready') {
+                    imageBlock = `<div class="chat-image-wrap"><img class="chat-image" src="${escapeHtml(msg.imageUrl)}" alt="" onclick="openChatImage('${escapeHtml(msg.imageUrl)}')"></div>`;
+                } else if (msg.imageStatus && msg.imageStatus !== 'ready') {
+                    imageBlock = `<div class="image-pending">${escapeHtml(imageStatusLabel(msg))}</div>`;
+                }
+                const hasReadyImage = Boolean(msg.imageUrl && msg.imageStatus === 'ready');
+                const canRegenImage = Boolean(msg.id) && (hasReadyImage || msg.imageStatus === 'failed');
+                const showImageTools = hasReadyImage || canShowLog || canRegenImage;
+                const thinkingPast = msg.debugInfo?.thinkingText
+                    ? `<details class="thinking-fold thinking-fold--past"><summary>思考过程</summary><pre class="thinking-text">${escapeHtml(msg.debugInfo.thinkingText)}</pre></details>`
+                    : '';
+                return `
+                    <div class="message-wrap message-wrap-ai">
+                        ${renderMessageActions(index, 'assistant')}
+                        <div class="message ai">
+                        ${thinkingPast}
+                        ${escapeHtml(msg.content).replace(/\n/g, '<br>')}
+                        ${imageBlock}
+                        ${showImageTools ? `<div class="msg-image-tools">
+                            ${hasReadyImage ? `<button type="button" class="debug-btn debug-btn-reload" onclick="reloadCharacterChatImage('${escapeHtml(msg.id)}')" title="从服务器重新拉取原图刷新显示（不重新生图）">重新加载图片</button>` : ''}
+                            ${canRegenImage ? `<button type="button" class="debug-btn debug-btn-regen" onclick="retryCharacterImage('${escapeHtml(msg.id)}')">重新生图</button>` : ''}
+                            ${hasReadyImage ? `<button type="button" class="debug-btn debug-btn-export" data-sticker-export="${index}" onclick="exportChatImageSticker(${index})">导出小红书边框</button>` : ''}
+                            ${canShowLog ? `<button type="button" class="debug-btn" onclick="showDebugInfo(${index})">查询日志</button>` : ''}
+                        </div>` : ''}
+                        ${emotion && emotion.primaryEmotion ? `<div class="emotion-tag">${emotion.primaryEmotion} ${emotion.intensity || 0}/10</div>` : ''}
+                        ${msg.timing ? `
+                        <div class="timing-info">
+                            <span class="timing-item">情感: ${(msg.timing.emotionTimeMs / 1000).toFixed(1)}s</span>
+                            <span class="timing-item">回复: ${(msg.timing.replyTimeMs / 1000).toFixed(1)}s</span>
+                            <span class="timing-item">总耗时: ${(msg.timing.totalTimeMs / 1000).toFixed(1)}s</span>
+                        </div>
+                        ` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+        }).join('');
+
+        if (activeChatTurn) {
+            history.innerHTML += buildStreamingBubbleHtml(activeChatTurn);
+        }
+        
+        history.scrollTop = history.scrollHeight;
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function getChatTurnsForExport() {
+        const turns = [];
+        for (let i = 0; i < characterChatMessages.length - 1; i++) {
+            const userMsg = characterChatMessages[i];
+            const assistantMsg = characterChatMessages[i + 1];
+            if (userMsg.role === 'user' && assistantMsg.role === 'assistant') {
+                turns.push({
+                    turnNo: turns.length + 1,
+                    userMsg,
+                    assistantMsg
+                });
+            }
+        }
+        return turns;
+    }
+
+    function previewText(text, maxLen = 48) {
+        const t = String(text || '').replace(/\s+/g, ' ').trim();
+        if (t.length <= maxLen) return t;
+        return t.slice(0, maxLen) + '…';
+    }
+
+    function clearExportDirHandle() {
+        exportDirHandle = null;
+    }
+
+    async function pickExportFolder() {
+        if (!('showDirectoryPicker' in window)) {
+            alert('当前浏览器不支持文件夹选择，请手动粘贴完整路径（如 D:\\抖音素材\\纱雾对话）');
+            document.getElementById('exportFolderPath').focus();
+            return;
+        }
+        try {
+            exportDirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+            const input = document.getElementById('exportFolderPath');
+            input.value = exportDirHandle.name;
+            localStorage.setItem(EXPORT_FOLDER_STORAGE_KEY, exportDirHandle.name);
+        } catch (e) {
+            if (e.name !== 'AbortError') {
+                alert('选择文件夹失败: ' + e.message);
+            }
+        }
+    }
+
+    async function saveBlobToPickedDir(dirHandle, filename, blob) {
+        const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+    }
+
+    async function nextNumberedPngSeqFromHandle(dirHandle) {
+        let max = 0;
+        for await (const [name, handle] of dirHandle.entries()) {
+            if (handle.kind !== 'file') continue;
+            const m = /^(\d+)\.png$/i.exec(name);
+            if (m) max = Math.max(max, parseInt(m[1], 10));
+        }
+        return max + 1;
+    }
+
+    async function nextNumberedPngSeqFromPath(folderPath) {
+        const res = await fetch(`/api/export-next-seq?folderPath=${encodeURIComponent(folderPath)}`);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) throw new Error(data.error || '无法读取导出序号');
+        return Number(data.nextSeq) || 1;
+    }
+
+    function formatNumberedPngName(seq) {
+        return `${String(seq).padStart(3, '0')}.png`;
+    }
+
+    function openExportModal() {
+        if (!currentCharacter) {
+            alert('请先选择角色');
+            return;
+        }
+        const turns = getChatTurnsForExport();
+        if (!turns.length) {
+            alert('还没有可导出的对话轮次（需要至少一轮用户消息 + AI 回复）');
+            return;
+        }
+        const savedFolder = localStorage.getItem(EXPORT_FOLDER_STORAGE_KEY);
+        if (savedFolder) {
+            document.getElementById('exportFolderPath').value = savedFolder;
+        }
+        const list = document.getElementById('exportTurnList');
+        list.innerHTML = turns.map((turn) => {
+            const hasImage = turn.assistantMsg.imageUrl && turn.assistantMsg.imageStatus === 'ready';
+            return `
+                <label class="export-turn-item">
+                    <input type="checkbox" class="export-turn-cb" data-turn-no="${turn.turnNo}" checked>
+                    <span class="export-turn-no">${String(turn.turnNo).padStart(2, '0')}</span>
+                    <span class="export-turn-preview">
+                        <strong>你：</strong>${escapeHtml(previewText(turn.userMsg.content))}<br>
+                        <strong>${escapeHtml(currentCharacter.name)}：</strong>${escapeHtml(previewText(turn.assistantMsg.content))}
+                        ${hasImage ? '<span class="export-has-img">📷 有配图</span>' : '<span class="export-no-img">无配图</span>'}
+                    </span>
+                </label>
+            `;
+        }).join('');
+        document.getElementById('exportTurnCount').textContent = `共 ${turns.length} 轮`;
+        document.getElementById('exportSelectAll').checked = true;
+        document.getElementById('exportModalOverlay').hidden = false;
+    }
+
+    function closeExportModal() {
+        document.getElementById('exportModalOverlay').hidden = true;
+    }
+
+    function toggleExportSelectAll(checked) {
+        document.querySelectorAll('.export-turn-cb').forEach((cb) => { cb.checked = checked; });
+    }
+
+    function loadImageForExport(src) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => resolve(img);
+            img.onerror = () => reject(new Error('图片加载失败: ' + src));
+            img.src = src;
+        });
+    }
+
+    function buildExportStripElement(turn) {
+        const host = document.getElementById('exportRenderHost');
+        host.innerHTML = '';
+        const strip = document.createElement('div');
+        strip.className = 'export-strip';
+        const charName = currentCharacter?.name || 'AI';
+        const aiText = String(turn.assistantMsg.content || '').trim();
+        const imageUrl = turn.assistantMsg.imageUrl;
+        const hasImage = imageUrl && turn.assistantMsg.imageStatus === 'ready';
+
+        strip.innerHTML = `
+            <div class="export-strip-inner">
+                <div class="export-user-bubble">${escapeHtml(turn.userMsg.content).replace(/\n/g, '<br>')}</div>
+                <div class="export-ai-block">
+                    <div class="export-ai-name">${escapeHtml(charName)}</div>
+                    <div class="export-ai-text">${escapeHtml(aiText).replace(/\n/g, '<br>')}</div>
+                    ${hasImage ? `<img class="export-ai-image" src="${escapeHtml(imageUrl)}" alt="">` : ''}
+                </div>
+            </div>
+        `;
+        host.appendChild(strip);
+        return strip;
+    }
+
+    async function renderTurnToPngBlob(turn) {
+        const strip = buildExportStripElement(turn);
+        const imgEl = strip.querySelector('.export-ai-image');
+        if (imgEl) {
+            await loadImageForExport(imgEl.src);
+        }
+        if (typeof html2canvas !== 'function') {
+            throw new Error('html2canvas 未加载，请检查网络');
+        }
+        const canvas = await html2canvas(strip, {
+            scale: 2,
+            useCORS: true,
+            backgroundColor: '#f6edda',
+            logging: false
+        });
+        return new Promise((resolve, reject) => {
+            canvas.toBlob((blob) => {
+                if (blob) resolve(blob);
+                else reject(new Error('生成 PNG 失败'));
+            }, 'image/png');
+        });
+    }
+
+    function blobToBase64(blob) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    }
+
+    async function exportSelectedStrips() {
+        const folderPath = document.getElementById('exportFolderPath').value.trim();
+        if (!exportDirHandle && !folderPath) {
+            alert('请选择或填写保存文件夹');
+            return;
+        }
+        const selectedTurnNos = [...document.querySelectorAll('.export-turn-cb:checked')]
+            .map((cb) => Number(cb.dataset.turnNo))
+            .sort((a, b) => a - b);
+        if (!selectedTurnNos.length) {
+            alert('请至少选择一轮对话');
+            return;
+        }
+        const allTurns = getChatTurnsForExport();
+        const selectedTurns = selectedTurnNos
+            .map((no) => allTurns.find((t) => t.turnNo === no))
+            .filter(Boolean);
+
+        const btn = document.getElementById('exportSubmitBtn');
+        btn.disabled = true;
+        btn.textContent = '导出中…';
+
+        try {
+            const saved = [];
+
+            if (exportDirHandle) {
+                const perm = await exportDirHandle.requestPermission({ mode: 'readwrite' });
+                if (perm !== 'granted') {
+                    throw new Error('没有所选文件夹的写入权限，请重新选择');
+                }
+                let seq = await nextNumberedPngSeqFromHandle(exportDirHandle);
+                for (let i = 0; i < selectedTurns.length; i++) {
+                    btn.textContent = `导出中 ${i + 1}/${selectedTurns.length}…`;
+                    const blob = await renderTurnToPngBlob(selectedTurns[i]);
+                    const name = formatNumberedPngName(seq);
+                    seq += 1;
+                    await saveBlobToPickedDir(exportDirHandle, name, blob);
+                    saved.push(name);
+                }
+                localStorage.setItem(EXPORT_FOLDER_STORAGE_KEY, exportDirHandle.name);
+                alert(`已导出 ${saved.length} 张到文件夹：\n${exportDirHandle.name}\n文件：${saved.join(', ')}`);
+            } else {
+                const files = [];
+                for (let i = 0; i < selectedTurns.length; i++) {
+                    btn.textContent = `导出中 ${i + 1}/${selectedTurns.length}…`;
+                    const blob = await renderTurnToPngBlob(selectedTurns[i]);
+                    const data = await blobToBase64(blob);
+                    files.push({ data });
+                }
+
+                localStorage.setItem(EXPORT_FOLDER_STORAGE_KEY, folderPath);
+
+                const res = await fetch('/api/export-chat-strips', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ folderPath, files })
+                });
+                const result = await res.json();
+                if (!res.ok || !result.ok) {
+                    throw new Error(result.error || '导出失败');
+                }
+                saved.push(...result.saved);
+                alert(`已导出 ${result.saved.length} 张到：\n${result.folderPath}\n文件：${result.saved.join(', ')}`);
+            }
+
+            closeExportModal();
+        } catch (e) {
+            alert('导出失败: ' + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '导出 PNG';
+            document.getElementById('exportRenderHost').innerHTML = '';
+        }
+    }
+    
+    function showDebugInfo(index) {
+        const msg = characterChatMessages[index];
+        if (!msg) return;
+        
+        const debugModal = document.createElement('div');
+        debugModal.className = 'debug-modal';
+        const debugInfo = msg.debugInfo || {};
+        const emotionAnalysis = msg.emotionAnalysis?.emotionAnalysis || msg.emotionAnalysis;
+        const systemMessagesText = debugInfo.sentMessages ? JSON.stringify(debugInfo.sentMessages, null, 2) : '';
+        const emotionMessagesText = debugInfo.emotionMessages ? JSON.stringify(debugInfo.emotionMessages, null, 2) : '';
+        const emotionFull = msg.emotionAnalysis && typeof msg.emotionAnalysis === 'object' ? msg.emotionAnalysis : {};
+        const emotionResultText = Object.keys(emotionFull).length > 1
+            ? JSON.stringify(emotionFull, null, 2)
+            : (emotionAnalysis ? JSON.stringify(emotionAnalysis, null, 2) : '');
+        const replyText = debugInfo.rawResponse || msg.content || '';
+        
+        debugModal.innerHTML = `
+            <div class="debug-modal-content">
+                <div class="debug-modal-header">
+                    <h3>对话日志详情</h3>
+                    <button class="close-btn" onclick="this.parentElement.parentElement.parentElement.remove()">&times;</button>
+                </div>
+                <div class="debug-modal-body">
+                    <div class="debug-section">
+                        <h4>发送给AI的完整情感提示词messages</h4>
+                        <pre>${escapeHtml(emotionMessagesText || 'N/A')}</pre>
+                    </div>
+                    <div class="debug-section">
+                        <h4>发送给AI的完整服饰分镜提示词messages</h4>
+                        <pre>${escapeHtml(debugInfo.outfitVisualMessages ? JSON.stringify(debugInfo.outfitVisualMessages, null, 2) : 'N/A')}</pre>
+                    </div>
+                    <div class="debug-section">
+                        <h4>AI分析的情感结果</h4>
+                        <pre>${escapeHtml(emotionResultText || 'N/A')}</pre>
+                    </div>
+                    <div class="debug-section">
+                        <h4>上一轮出图提示词（连续性输入）</h4>
+                        <pre>${escapeHtml(debugInfo.previousVisualText || (debugInfo.previousVisual ? JSON.stringify(debugInfo.previousVisual, null, 2) : '无（首轮或未缓存）'))}</pre>
+                    </div>
+                    <div class="debug-section">
+                        <h4>发送给AI的完整系统提示词messages</h4>
+                        <pre>${escapeHtml(systemMessagesText || 'N/A')}</pre>
+                    </div>
+                    <div class="debug-section">
+                        <h4>AI的回复结果</h4>
+                        <pre>${escapeHtml(replyText || 'N/A')}</pre>
+                    </div>
+                    ${debugInfo.thinkingText ? `
+                    <div class="debug-section">
+                        <h4>模型思考过程</h4>
+                        <pre>${escapeHtml(debugInfo.thinkingText)}</pre>
+                    </div>
+                    ` : ''}
+                    <div class="debug-section">
+                        <h4>本轮出图 VISUAL</h4>
+                        <pre>${escapeHtml(msg.visual ? JSON.stringify(msg.visual, null, 2) : (msg.imageStatus === 'pending' ? '出图尚未完成' : '无'))}</pre>
+                    </div>
+                    ${debugInfo.continuityEnforced?.length ? `
+                    <div class="debug-section">
+                        <h4>连续性强制修正（情绪分镜 plan 经服务端对齐上一轮）</h4>
+                        <pre>修正字段：${escapeHtml(debugInfo.continuityEnforced.join(', '))}
+${debugInfo.visualBeforeEnforce ? '\n分析阶段 visualPlan：\n' + escapeHtml(JSON.stringify(debugInfo.visualBeforeEnforce, null, 2)) : ''}
+${debugInfo.outfitPlan ? '\noutfitPlan：\n' + escapeHtml(JSON.stringify(debugInfo.outfitPlan, null, 2)) : ''}</pre>
+                    </div>
+                    ` : ''}
+                    <div class="debug-section">
+                        <h4>本轮动作 / 服饰 / 表情 / 场景 / 氛围（不含底模）</h4>
+                        <pre>${escapeHtml(msg.imageTurnPrompt || msg.visual?.prompt || (msg.imageStatus === 'pending' ? '出图尚未完成，请出图后再打开日志' : '无'))}</pre>
+                    </div>
+                    <div class="debug-section">
+                        <h4>实际发给 Comfy 的完整正向提示词（底模 + 本轮服饰动作场景）</h4>
+                        <pre>${escapeHtml(msg.imagePrompt || (msg.imageStatus === 'pending' ? '出图尚未完成，请出图后再打开日志' : '无'))}</pre>
+                    </div>
+                    <div class="debug-section">
+                        <h4>绘图模型 / Checkpoint</h4>
+                        <pre>${escapeHtml(msg.checkpointName || '未记录')}</pre>
+                    </div>
+                    <div class="debug-section">
+                        <h4>负向提示词</h4>
+                        <pre>${escapeHtml(msg.imageNegative || '无')}</pre>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(debugModal);
+        debugModal.addEventListener('click', (e) => {
+            if (e.target === debugModal) debugModal.remove();
+        });
+    }
+    
+    async function startChatTurn(userText, { skipPushUser = false } = {}) {
+        if (!currentCharacter) {
+            alert('请先选择角色');
+            return;
+        }
+
+        const text = String(userText || '').trim();
+        if (!text) return;
+
+        if (!skipPushUser) {
+            characterChatMessages.push({ role: 'user', content: text, id: makeMessageId() });
+            renderCharacterChat();
+            document.getElementById('charChatInput').value = '';
+            // Persist user message immediately so refresh won't lose the turn start
+            saveChatHistory();
+        }
+
+        const forcePrompt = document.getElementById('forcePrompt').value.trim();
+        let systemPrompt = currentCharacter.systemPrompt;
+        if (forcePrompt) {
+            systemPrompt = `${systemPrompt}\n\n**强制提示词**：${forcePrompt}`;
+        }
+
+        const provider = document.getElementById('provider').value;
+        let model = document.getElementById('model') ? document.getElementById('model').value : '';
+        if (provider === 'doubao') model = document.getElementById('doubaoModel').value;
+
+        const messagesForAI = characterChatMessages.map(m => ({
+            role: m.role,
+            content: m.content
+        }));
+        const previousVisual = getLastVisualContext();
+        const payload = {
+            characterId: currentCharacter.id,
+            messages: messagesForAI,
+            systemPrompt: systemPrompt,
+            provider,
+            model,
+            baseUrl: document.getElementById('baseUrl').value,
+            apiKey: document.getElementById('apiKey').value,
+            turnMemory: turnMemory,
+            conversationSummary: conversationSummary,
+            appearancePrompt: currentCharacter.appearancePrompt || '',
+            outfitPrompt: currentCharacter.outfitPrompt || '',
+            previousVisual
+        };
+
+        activeChatTurn = {
+            turnId: '',
+            phase: 'queued',
+            thinkingText: '',
+            replyText: '',
+            thinkingOpen: false
+        };
+        renderCharacterChat();
+
+        try {
+            const res = await fetch('/api/chat-turn', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+
+            if (!res.ok || data.error) throw new Error(data.error || '无法创建对话任务');
+
+            activeChatTurn.turnId = data.turnId;
+            saveRoleplaySession(currentCharacter.id, {
+                turnId: data.turnId,
+                userText: text,
+                previousVisual,
+                phase: 'queued'
+            });
+            subscribeChatTurnStream(data.turnId, text, previousVisual);
+
+        } catch (e) {
+            activeChatTurn = {
+                turnId: '',
+                phase: 'error',
+                thinkingText: '',
+                replyText: 'Error: ' + e.message,
+                thinkingOpen: false
+            };
+            clearRoleplaySession(currentCharacter.id);
+            closeChatTurnStream();
+            renderCharacterChat();
+        }
+    }
+
+    async function sendCharacterMessage() {
+        const input = document.getElementById('charChatInput');
+        await startChatTurn(input.value.trim());
+    }
+    
+    async function saveChatHistory() {
+        if (!currentCharacter) return;
+        try {
+            await fetch(`/api/chat-history/${currentCharacter.id}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ 
+                    messages: characterChatMessages,
+                    turnMemory: turnMemory,
+                    emotionHistory: turnMemory,
+                    summary: conversationSummary
+                })
+            });
+        } catch (e) {
+            console.error('Failed to save chat history', e);
+        }
+    }
+
+    function imageStatusLabel(msg) {
+        switch (msg.imageStatus) {
+            case 'queued':
+                return '出图排队中…';
+            case 'waiting_vram':
+                return msg.imageStatusHint || '等待 GPU 显存释放（需要 ≥6GB 空闲）…';
+            case 'running':
+            case 'pending':
+                return '正在绘制这一幕…';
+            default:
+                return '正在绘制这一幕…';
+        }
+    }
+
+    function closeImageJobStream(jobId) {
+        const es = imageJobStreams.get(jobId);
+        if (es) {
+            es.close();
+            imageJobStreams.delete(jobId);
+        }
+    }
+
+    function applyImageJobResult(msg, data) {
+        if (!msg || !data) return;
+        msg.imagePrompt = data.prompt || msg.imagePrompt || '';
+        msg.imageTurnPrompt = data.turnPrompt || msg.imageTurnPrompt || '';
+        msg.imageNegative = data.negative || msg.imageNegative || '';
+        if (data.checkpointName) msg.checkpointName = data.checkpointName;
+        if (data.visual) {
+            const prevOutfit = String(msg.visual?.outfit || '').trim();
+            msg.visual = data.visual;
+            if (prevOutfit && !String(msg.visual.outfit || '').trim()) {
+                msg.visual.outfit = prevOutfit;
+                if (msg.visual.prompt) {
+                    msg.visual.prompt = `${prevOutfit}, ${msg.visual.prompt}`.replace(/,\s*,/g, ', ');
+                }
+            }
+        } else if (msg.imageTurnPrompt) {
+            msg.visual = msg.visual || { prompt: msg.imageTurnPrompt };
+        }
+        syncVisualRefFromMessage(msg);
+        const refForAi = msg.visualRefForAi || deriveVisualRefSource(msg);
+        if (refForAi) rememberVisual(refForAi);
+        if (data.ok && data.imageUrl) {
+            msg.imageUrl = data.imageUrl;
+            msg.imageStatus = 'ready';
+            msg.imageError = '';
+        }
+    }
+
+    function subscribeImageJobStream(jobId, messageId) {
+        if (!jobId) return;
+        closeImageJobStream(jobId);
+        const es = new EventSource(`/api/image-jobs/${encodeURIComponent(jobId)}/stream`);
+        imageJobStreams.set(jobId, es);
+
+        const getMsg = () => characterChatMessages.find((m) => m.id === messageId);
+
+        const handleDone = async (data) => {
+            const msg = getMsg();
+            if (!msg) return;
+            applyImageJobResult(msg, data);
+            renderCharacterChat();
+            await saveChatHistory();
+            closeImageJobStream(jobId);
+        };
+
+        const handleFailed = async (data) => {
+            const msg = getMsg();
+            if (!msg) return;
+            msg.imageStatus = 'failed';
+            msg.imageError = data.error || '出图失败';
+            renderCharacterChat();
+            await saveChatHistory();
+            closeImageJobStream(jobId);
+        };
+
+        es.addEventListener('snapshot', (e) => {
+            try {
+                const snap = JSON.parse(e.data);
+                if (snap.status === 'completed' && snap.result) {
+                    handleDone(snap.result);
+                } else if (snap.status === 'failed') {
+                    handleFailed({ error: snap.error });
+                } else if (snap.status === 'queued') {
+                    const msg = getMsg();
+                    if (msg) {
+                        msg.imageStatus = 'queued';
+                        renderCharacterChat();
+                    }
+                } else if (snap.status === 'running') {
+                    const msg = getMsg();
+                    if (msg) {
+                        msg.imageStatus = 'running';
+                        renderCharacterChat();
+                    }
+                }
+            } catch (err) {
+                console.warn('[SSE] snapshot parse error', err);
+            }
+        });
+
+        es.addEventListener('vram_waiting', (e) => {
+            const msg = getMsg();
+            if (!msg) return;
+            try {
+                const info = JSON.parse(e.data);
+                msg.imageStatus = 'waiting_vram';
+                if (info.phase === 'ollama_unload') {
+                    msg.imageStatusHint = '正在释放 Ollama 显存…';
+                } else if (info.freeMb != null) {
+                    msg.imageStatusHint = `等待 GPU 显存：当前 ${info.freeMb}MB / 需要 ≥${info.requiredMb || 6144}MB`;
+                } else {
+                    msg.imageStatusHint = '等待 GPU 显存释放（需要 ≥6GB 空闲）…';
+                }
+                renderCharacterChat();
+            } catch (err) {
+                console.warn('[SSE] vram_waiting parse error', err);
+            }
+        });
+
+        es.addEventListener('vram_ready', (e) => {
+            const msg = getMsg();
+            if (!msg) return;
+            msg.imageStatus = 'running';
+            msg.imageStatusHint = '';
+            renderCharacterChat();
+        });
+
+        es.addEventListener('image_running', () => {
+            const msg = getMsg();
+            if (!msg) return;
+            msg.imageStatus = 'running';
+            renderCharacterChat();
+        });
+
+        es.addEventListener('image_done', (e) => {
+            try {
+                handleDone(JSON.parse(e.data));
+            } catch (err) {
+                console.warn('[SSE] image_done parse error', err);
+            }
+        });
+
+        es.addEventListener('image_failed', (e) => {
+            try {
+                handleFailed(JSON.parse(e.data));
+            } catch (err) {
+                console.warn('[SSE] image_failed parse error', err);
+            }
+        });
+
+        es.onerror = () => {
+            // EventSource auto-reconnects; ignore transient errors while job runs
+        };
+    }
+
+    async function reloadCharacterChatImage(messageId) {
+        const msg = characterChatMessages.find((m) => m.id === messageId);
+        if (!msg || (!msg.imageUrl && !msg._persistedImagePath) || msg.imageStatus !== 'ready') {
+            alert('没有可加载的配图');
+            return;
+        }
+        // 设计：只从服务器重新拉取已有输出 PNG 刷新聊天里的 <img>。
+        // 不会重新跑 Comfy，也不会重绘小红书边框 canvas。
+        // 「上半有图、下半黑」多半是边框 canvas/GPU 问题，不是原图没加载到。
+        let diskPath = msg._persistedImagePath || String(msg.imageUrl || '');
+        if (diskPath.startsWith('blob:')) {
+            diskPath = msg._persistedImagePath || '';
+        }
+        diskPath = String(diskPath).split('?')[0];
+        if (!diskPath || !diskPath.startsWith('/')) {
+            alert('找不到磁盘上的配图路径，请用「重新生图」');
+            return;
+        }
+
+        const url = `${diskPath}?reload=${Date.now()}`;
+        try {
+            const res = await fetch(url, { cache: 'reload' });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const blob = await res.blob();
+            if (!blob || !blob.size) throw new Error('文件为空');
+            if (msg._reloadObjectUrl) {
+                try { URL.revokeObjectURL(msg._reloadObjectUrl); } catch (_) {}
+            }
+            msg._persistedImagePath = diskPath;
+            msg._reloadObjectUrl = URL.createObjectURL(blob);
+            msg.imageUrl = msg._reloadObjectUrl;
+            renderCharacterChat();
+
+            const displayUrl = msg.imageUrl;
+            msg.imageUrl = diskPath;
+            await saveChatHistory();
+            msg.imageUrl = displayUrl;
+        } catch (e) {
+            msg.imageUrl = url;
+            renderCharacterChat();
+            alert('重新加载失败: ' + (e.message || e));
+        }
+    }
+
+    async function retryCharacterImage(messageId) {
+        const msg = characterChatMessages.find((m) => m.id === messageId);
+        if (!msg) {
+            alert('找不到该条消息');
+            return;
+        }
+        if (msg.imageStatus === 'queued' || msg.imageStatus === 'running' || msg.imageStatus === 'waiting_vram') {
+            alert('出图进行中，请稍候再试');
+            return;
+        }
+
+        const idx = characterChatMessages.findIndex((m) => m.id === messageId);
+        let userMessage = '';
+        if (idx > 0 && characterChatMessages[idx - 1]?.role === 'user') {
+            userMessage = characterChatMessages[idx - 1].content || '';
+        }
+        let previousVisual = null;
+        for (let i = idx - 1; i >= 0; i--) {
+            const prev = characterChatMessages[i];
+            if (prev.role === 'assistant' && prev.visual) {
+                previousVisual = prev.visual;
+                break;
+            }
+        }
+
+        msg.imageError = '';
+        msg.imageStatusHint = '';
+        msg.imageUrl = '';
+        msg.imageStatus = 'queued';
+        renderCharacterChat();
+        saveChatHistory();
+
+        // 优先重试原任务（服务未重启时）；否则用本轮 visual 重新入队
+        if (msg.imageJobId) {
+            try {
+                const res = await fetch(`/api/image-jobs/${encodeURIComponent(msg.imageJobId)}/retry`, {
+                    method: 'POST'
+                });
+                const data = await res.json().catch(() => ({}));
+                if (res.ok) {
+                    subscribeImageJobStream(msg.imageJobId, messageId);
+                    return;
+                }
+                if (res.status !== 404 && res.status !== 409) {
+                    console.warn('retry job failed, will create new job:', data.error || res.status);
+                }
+            } catch (e) {
+                console.warn('retry job error, will create new job:', e.message);
+            }
+        }
+
+        const emotionBlock = msg.emotionAnalysis?.emotionAnalysis || msg.emotionAnalysis || {};
+        try {
+            await requestCharacterImage(
+                messageId,
+                emotionBlock,
+                msg.content,
+                msg.visual || null,
+                previousVisual,
+                userMessage
+            );
+        } catch (e) {
+            msg.imageStatus = 'failed';
+            msg.imageError = e.message || '重新生图失败';
+            renderCharacterChat();
+            saveChatHistory();
+            alert('重新生图失败: ' + e.message);
+        }
+    }
+
+    async function requestCharacterImage(messageId, emotionBlock, reply, visual, previousVisual = null, userMessage = '') {
+        if (!currentCharacter) return;
+        const provider = document.getElementById('provider').value;
+        let model = document.getElementById('model') ? document.getElementById('model').value : '';
+        if (provider === 'doubao') model = document.getElementById('doubaoModel').value;
+        const msg = characterChatMessages.find(m => m.id === messageId);
+        if (!msg) return;
+        try {
+            const res = await fetch('/api/image-jobs', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    characterId: currentCharacter.id,
+                    emotion: emotionBlock.primaryEmotion || '平静',
+                    intensity: emotionBlock.intensity,
+                    replySnippet: reply,
+                    userMessage: userMessage || '',
+                    visual: visual || null,
+                    previousVisual: previousVisual || null,
+                    provider,
+                    model,
+                    baseUrl: document.getElementById('baseUrl').value,
+                    apiKey: document.getElementById('apiKey').value,
+                    checkpointName: getSelectedCheckpoint(),
+                    workflowSettings: getWorkflowSettings(),
+                    messageId
+                })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || '入队失败');
+            msg.imageJobId = data.imageJobId;
+            msg.imageStatus = 'queued';
+            msg.imageError = '';
+            renderCharacterChat();
+            // Persist job id immediately so refresh can reconnect before image finishes
+            await saveChatHistory();
+            subscribeImageJobStream(data.imageJobId, messageId);
+        } catch (e) {
+            msg.imageStatus = 'failed';
+            msg.imageError = e.message;
+            renderCharacterChat();
+            await saveChatHistory();
+        }
+    }
+    
+    async function clearCurrentChat() {
+        if (!currentCharacter) return;
+        if (!confirm(`确定要清空与${currentCharacter.name}的对话记录吗？`)) return;
+        
+        try {
+            await fetch(`/api/chat-history/${currentCharacter.id}`, { method: 'DELETE' });
+            closeChatTurnStream();
+            for (const jobId of [...imageJobStreams.keys()]) {
+                closeImageJobStream(jobId);
+            }
+            activeChatTurn = null;
+            clearRoleplaySession(currentCharacter.id);
+            characterChatMessages = [];
+            turnMemory = [];
+            conversationSummary = '';
+            lastVisualCache = null;
+            renderCharacterChat();
+        } catch (e) {
+            alert('清空对话失败');
+        }
+    }
+    
+    async function createNewCharacter() {
+        showCharacterModal();
+    }
+    
+    function showCharacterModal(character = null) {
+        const isEdit = character !== null;
+        
+        const modal = document.createElement('div');
+        modal.className = 'character-modal-overlay';
+        
+        modal.innerHTML = `
+            <div class="character-modal sticker">
+                <div class="tape warm"></div>
+                <div class="modal-header">
+                    <div class="modal-title-section">
+                        <span class="modal-icon">${isEdit ? '✏️' : '✨'}</span>
+                        <div>
+                            <h2 class="modal-title">${isEdit ? '编辑角色' : '创建新角色'}</h2>
+                            <p class="modal-subtitle">${isEdit ? '调整你的角色设定' : '打造你的专属角色'}</p>
+                        </div>
+                    </div>
+                    <button class="modal-close-btn" onclick="closeCharacterModal()">✕</button>
+                </div>
+                
+                <div class="modal-body">
+                    <div class="form-grid">
+                        <div class="avatar-section">
+                            <div class="avatar-preview" id="avatarPreview">
+                                <span class="avatar-emoji" id="avatarEmoji">${isEdit ? (character ? character.avatar : '👤') : '👤'}</span>
+                                <div class="avatar-overlay">
+                                    <span class="upload-icon">📷</span>
+                                    <span class="upload-text">更换</span>
+                                </div>
+                            </div>
+                            <input type="file" id="avatarFile" accept="image/*" style="display: none;">
+                        </div>
+                        
+                        <div class="form-section">
+                            <div class="form-row">
+                                <div class="form-group full">
+                                    <label class="form-label">
+                                        <span class="label-icon">🏷️</span>
+                                        角色名称
+                                    </label>
+                                    <input type="text" id="charName" class="form-input" value="" placeholder="给你的角色起个名字...">
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">
+                                        <span class="label-icon">😀</span>
+                                        表情符号
+                                    </label>
+                                    <input type="text" id="charAvatar" class="form-input" value="" placeholder="👤" oninput="updateAvatarPreview()">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="form-label">
+                                        <span class="label-icon">📝</span>
+                                        角色简介
+                                    </label>
+                                    <input type="text" id="charDesc" class="form-input" value="" placeholder="一句话描述这个角色...">
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group full">
+                                    <label class="form-label">
+                                        <span class="label-icon">🎭</span>
+                                        角色性格
+                                    </label>
+                                    <input type="text" id="charPersonality" class="form-input" value="" placeholder="比如：温柔、活泼、高冷、幽默...">
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group full">
+                                    <label class="form-label">
+                                        <span class="label-icon">🧠</span>
+                                        角色设定提示词
+                                        <span class="label-hint">AI 将基于此扮演角色</span>
+                                    </label>
+                                    <textarea id="charSystemPrompt" class="form-textarea" placeholder="详细描述角色的背景、性格、说话方式等..."></textarea>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group full">
+                                    <label class="form-label">
+                                        <span class="label-icon">🎨</span>
+                                        角色特征底模（提示词）
+                                        <span class="label-hint">只写角色固定外貌。服饰动作氛围由 AI 按对话生成后拼上来</span>
+                                    </label>
+                                    <textarea id="charAppearancePrompt" class="form-textarea" placeholder="1girl, solo, white hair, twin tails, orange eyes"></textarea>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group full">
+                                    <label class="form-label">
+                                        <span class="label-icon">👗</span>
+                                        默认服饰（可选）
+                                        <span class="label-hint">立绘默认衣服。不填则模型自己补；表情和动作由对话决定</span>
+                                    </label>
+                                    <textarea id="charOutfitPrompt" class="form-textarea" placeholder="school blazer, plaid skirt, loosened ribbon"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button class="btn-secondary" onclick="closeCharacterModal()">
+                        <span>取消</span>
+                    </button>
+                    <button class="btn-primary-gradient" id="modalSubmitBtn">
+                        <span>创建角色</span>
+                        <span class="btn-arrow">→</span>
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        setTimeout(() => modal.classList.add('show'), 10);
+        
+        // 填充数据
+        if (isEdit && character) {
+            document.getElementById('charName').value = character.name || '';
+            document.getElementById('charAvatar').value = character.avatar || '👤';
+            document.getElementById('charDesc').value = character.description || '';
+            document.getElementById('charPersonality').value = character.personality || '';
+            document.getElementById('charSystemPrompt').value = character.systemPrompt || '';
+            document.getElementById('charAppearancePrompt').value = character.appearancePrompt || '';
+            document.getElementById('charOutfitPrompt').value = character.outfitPrompt || '';
+            document.getElementById('modalSubmitBtn').innerHTML = '<span>保存更改</span><span class="btn-arrow">→</span>';
+            document.getElementById('modalSubmitBtn').onclick = () => saveCharacterEdit(character.id);
+        } else {
+            document.getElementById('charAvatar').value = '👤';
+            document.getElementById('avatarEmoji').textContent = '👤';
+            document.getElementById('modalSubmitBtn').innerHTML = '<span>创建角色</span><span class="btn-arrow">→</span>';
+            document.getElementById('modalSubmitBtn').onclick = saveNewCharacter;
+        }
+        
+        // 添加事件监听器
+        document.getElementById('avatarPreview').addEventListener('click', () => {
+            document.getElementById('avatarFile').click();
+        });
+        
+        document.getElementById('avatarFile').addEventListener('change', handleAvatarUpload);
+    }
+    
+    function closeCharacterModal() {
+        const modal = document.querySelector('.character-modal-overlay');
+        if (modal) {
+            modal.classList.remove('show');
+            setTimeout(() => modal.remove(), 300);
+        }
+    }
+    
+    function updateAvatarPreview() {
+        const emoji = document.getElementById('charAvatar').value || '👤';
+        document.getElementById('avatarEmoji').textContent = emoji;
+    }
+    
+    function handleAvatarUpload(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const preview = document.getElementById('avatarPreview');
+            const emoji = document.getElementById('avatarEmoji');
+            emoji.style.display = 'none';
+            preview.style.backgroundImage = `url(${event.target.result})`;
+            preview.style.backgroundSize = 'cover';
+            preview.style.backgroundPosition = 'center';
+        };
+        reader.readAsDataURL(file);
+    }
+    
+    async function saveNewCharacter() {
+        const name = document.getElementById('charName').value;
+        const avatar = document.getElementById('charAvatar').value;
+        const description = document.getElementById('charDesc').value;
+        const personality = document.getElementById('charPersonality').value;
+        const systemPrompt = document.getElementById('charSystemPrompt').value;
+        const appearancePrompt = document.getElementById('charAppearancePrompt').value;
+        const outfitPrompt = document.getElementById('charOutfitPrompt').value;
+        const avatarFile = document.getElementById('avatarFile').files[0];
+        
+        if (!name || !systemPrompt) {
+            alert('角色名称和设定提示词不能为空');
+            return;
+        }
+        
+        try {
+            let avatarUrl = avatar || '👤';
+            
+            if (avatarFile) {
+                const formData = new FormData();
+                formData.append('avatar', avatarFile);
+                
+                const uploadRes = await fetch('/api/upload-avatar', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (uploadRes.ok) {
+                    const uploadData = await uploadRes.json();
+                    avatarUrl = uploadData.avatarUrl;
+                }
+            }
+            
+            const res = await fetch('/api/characters', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    name,
+                    avatar: avatarUrl,
+                    description: description || '',
+                    personality: personality || '',
+                    systemPrompt,
+                    appearancePrompt: appearancePrompt || '',
+                    outfitPrompt: outfitPrompt || ''
+                })
+            });
+            const character = await res.json();
+            characters.push(character);
+            renderCharactersList();
+            selectCharacter(character.id);
+            closeCharacterModal();
+        } catch (e) {
+            alert('创建角色失败');
+        }
+    }
+    
+    async function editCharacter(e, characterId) {
+        e.stopPropagation();
+        const character = characters.find(c => c.id === characterId);
+        if (!character) return;
+        
+        showCharacterModal(character);
+    }
+    
+    async function saveCharacterEdit(characterId) {
+        const name = document.getElementById('charName').value;
+        const avatar = document.getElementById('charAvatar').value;
+        const description = document.getElementById('charDesc').value;
+        const personality = document.getElementById('charPersonality').value;
+        const systemPrompt = document.getElementById('charSystemPrompt').value;
+        const appearancePrompt = document.getElementById('charAppearancePrompt').value;
+        const outfitPrompt = document.getElementById('charOutfitPrompt').value;
+        const avatarFile = document.getElementById('avatarFile').files[0];
+        
+        if (!name || !systemPrompt) {
+            alert('角色名称和设定提示词不能为空');
+            return;
+        }
+        
+        try {
+            let avatarUrl = avatar;
+            
+            // Handle file upload if provided
+            if (avatarFile) {
+                const formData = new FormData();
+                formData.append('avatar', avatarFile);
+                formData.append('characterId', characterId);
+                
+                const uploadRes = await fetch('/api/upload-avatar', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (uploadRes.ok) {
+                    const uploadData = await uploadRes.json();
+                    avatarUrl = uploadData.avatarUrl;
+                }
+            }
+            
+            await fetch('/api/characters', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    id: characterId,
+                    name,
+                    avatar: avatarUrl || '👤',
+                    description: description || '',
+                    personality: personality || '',
+                    systemPrompt,
+                    appearancePrompt: appearancePrompt || '',
+                    outfitPrompt: outfitPrompt || ''
+                })
+            });
+            
+            // Update local data
+            const index = characters.findIndex(c => c.id === characterId);
+            if (index >= 0) {
+                characters[index] = { ...characters[index], name, avatar: avatarUrl, description, personality, systemPrompt, appearancePrompt, outfitPrompt };
+                if (currentCharacter && currentCharacter.id === characterId) {
+                    currentCharacter = characters[index];
+                    selectCharacter(characterId);
+                } else {
+                    renderCharactersList();
+                }
+            }
+            
+            closeCharacterModal();
+        } catch (e) {
+            alert('保存角色失败: ' + e.message);
+        }
+    }
+    
+    function editCurrentCharacter() {
+        if (!currentCharacter) {
+            alert('请先选择角色');
+            return;
+        }
+        editCharacter({ stopPropagation: () => {} }, currentCharacter.id);
+    }
+    
+    async function deleteCharacter(e, characterId) {
+        e.stopPropagation();
+        if (!confirm('确定删除这个角色吗？')) return;
+        
+        try {
+            await fetch(`/api/characters/${characterId}`, { method: 'DELETE' });
+            characters = characters.filter(c => c.id !== characterId);
+            if (currentCharacter && currentCharacter.id === characterId) {
+                currentCharacter = null;
+                characterChatMessages = [];
+                updateMobileCharChip(null);
+                document.getElementById('currentCharName').innerText = '选择角色';
+                document.getElementById('currentCharDesc').innerText = '与喜欢的角色互动吧';
+                const baseEl = document.getElementById('currentCharBase');
+                if (baseEl) baseEl.innerText = '';
+                document.getElementById('currentCharAvatar').innerText = '🎭';
+                renderCharacterChat();
+            }
+            renderCharactersList();
+        } catch (e) {
+            alert('删除角色失败');
+        }
+    }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,2242 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="gen-page">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ComfyUI 图片生成</title>
+    <link rel="stylesheet" href="styles/generate-paper.css?v=17">
+</head>
+<body>
+    <a href="index.html" class="back-home"><span>🏠</span><span>返回主页</span></a>
+
+    <div class="gen-app">
+        <div class="gen-topbar">
+            <h1>✨ ComfyUI 图片生成</h1>
+            <div class="gen-topbar-actions">
+                <span class="gen-status" id="comfyStatus">Comfy 检测中…</span>
+                <button type="button" class="btn btn-ghost btn-sm" id="btnTogglePresets">收起预设</button>
+                <div class="view-toggle" title="展示模式">
+                    <button type="button" class="active" id="btnViewSingle">单图</button>
+                    <button type="button" id="btnViewGrid">网格</button>
+                </div>
+                <button type="button" class="btn btn-ghost btn-sm" id="btnToggleConfig">展开配置</button>
+            </div>
+        </div>
+
+        <div class="gen-layout" id="layout">
+            <!-- 左：角色预设（可收） -->
+            <aside class="gen-panel preset-panel" id="presetPanel">
+                <div class="gen-panel-head">
+                    <span>角色预设</span>
+                    <button type="button" class="btn btn-ghost btn-sm" id="btnNewPreset">＋新建</button>
+                </div>
+                <div class="gen-panel-body">
+                    <div class="preset-list" id="presetList"></div>
+                    <p class="progress-text" style="margin-top:10px;">预设仅保存在本机 data/，不会进 Git。</p>
+                </div>
+            </aside>
+
+            <!-- 中：图占主区；底栏合一：输入 + 单图本张词 / 网格底模 -->
+            <div class="center-col">
+                <section class="gen-panel results-panel">
+                    <div class="gen-panel-head">
+                        <span>生成结果</span>
+                        <span class="progress-text" id="resultMeta">0 张 · 点击图片可放大</span>
+                    </div>
+                    <div class="gen-panel-body results-body">
+                        <div class="results-empty" id="resultsEmpty" hidden>选好预设后，在左下角输入场景并生成。</div>
+                        <div class="results-grid hidden" id="resultsGrid"></div>
+                        <div class="single-view active" id="singleView">
+                            <div class="single-hero">
+                                <div class="single-stage" id="singleStage" title="点击放大">
+                                    <div class="stage-placeholder">选好预设后，在左下角输入场景并生成。<br>出图后默认带边框预览，点击可放大。</div>
+                                </div>
+                                <div class="single-nav">
+                                    <button type="button" class="btn btn-ghost btn-sm" id="btnPrev">◀</button>
+                                    <span id="singleIndexLabel">0 / 0</span>
+                                    <button type="button" class="btn btn-ghost btn-sm" id="btnNext">▶</button>
+                                    <button type="button" class="btn btn-ghost btn-sm" id="btnOpenLightbox">放大</button>
+                                    <button type="button" class="btn btn-ghost btn-sm" id="btnRerenderSingle" title="从 Comfy output 或本机选图替换当前槽位">换图</button>
+                                    <button type="button" class="btn btn-ghost btn-sm" id="btnCopySinglePrompt">复制词</button>
+                                    <button type="button" class="btn btn-accent2 btn-sm" id="btnExportCurrent" disabled>导出</button>
+                                    <button type="button" class="btn btn-ghost btn-sm" id="btnExportSelected" disabled>导出选中</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="workspace-panel" id="workspaceBottom">
+                            <div class="workspace-toprow">
+                                <span class="run-status-dot" id="runStatusDot" aria-hidden="true"></span>
+                                <span class="run-status-text" id="progressText">就绪 · 选好预设后点「开始生成」</span>
+                                <button type="button" class="btn btn-ghost btn-sm run-status-cancel" id="btnCancelGenerate" hidden>取消</button>
+                                <span class="workspace-divider" id="gridToolbarDivider" hidden></span>
+                                <span class="grid-toolbar-meta" id="gridToolbarMeta" hidden>0 张 · 已选 0</span>
+                                <button type="button" class="btn btn-ghost btn-sm" id="btnGridSelectAll" hidden>全选</button>
+                                <button type="button" class="btn btn-ghost btn-sm" id="btnGridSelectNone" hidden>取消全选</button>
+                                <button type="button" class="btn btn-accent2 btn-sm" id="btnGridExportSelected" hidden disabled>导出选中</button>
+                                <span class="bar-preset" id="activePresetLabel">未选择预设</span>
+                                <button type="button" class="btn btn-primary btn-sm" id="btnGenerate">开始生成</button>
+                            </div>
+                            <div class="workspace-main" id="composerDock">
+                                <div class="composer-pane">
+                                    <div class="composer-card">
+                                        <div class="mode-pills">
+                                            <label><input type="radio" name="promptMode" value="ai"><span>AI 扩写</span></label>
+                                            <label><input type="radio" name="promptMode" value="manual" checked><span>手动</span></label>
+                                        </div>
+                                        <div class="count-wrap" id="countWrap" hidden>
+                                            <span>数</span>
+                                            <button type="button" id="btnCountMinus">−</button>
+                                            <input type="number" id="countInput" min="1" max="30" value="1">
+                                            <button type="button" id="btnCountPlus">＋</button>
+                                        </div>
+                                    </div>
+                                    <textarea class="composer-input" id="sceneInput" rows="3" placeholder="场景 / Prompt…"></textarea>
+                                </div>
+                                <div class="side-pane prompt-box" id="singlePromptBox" hidden>
+                                    <div class="prompt-box-label">本张提示词</div>
+                                    <pre id="singlePromptText"></pre>
+                                </div>
+                                <div class="side-pane base-pane" id="dockBasePane" hidden>
+                                    <div class="prompt-box-label">底模 basePrompt</div>
+                                    <textarea id="dockBasePrompt" rows="4" placeholder="角色外貌等底模，与右侧配置同步"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- 右：配置（可收起） -->
+            <aside class="gen-panel config-panel" id="configPanel">
+                <div class="gen-panel-head">
+                    <span>预设配置</span>
+                    <button type="button" class="btn btn-ghost btn-sm" id="btnCloseConfig">收起</button>
+                </div>
+                <div class="gen-panel-body">
+                    <div class="config-form" id="configForm">
+                        <label>预设名称
+                            <input type="text" id="cfgName" placeholder="例如：兔子">
+                        </label>
+                        <label>底模 basePrompt（角色特征，锁死）
+                            <textarea id="cfgBasePrompt" placeholder="角色外貌、画师 tag 等，不给 AI 改"></textarea>
+                        </label>
+
+                        <div class="config-ai-box" id="cfgAiExpandBox">
+                            <div class="config-ai-title">AI 扩写提示词（网页侧，不是 Comfy 节点）</div>
+                            <p class="config-hint">只在中间选「AI 扩写」时用到：先让 LLM 写出服饰/动作，再和 basePrompt 拼进 Comfy。手动 Prompt 模式完全不走这里。</p>
+                            <label>System（扩写规则）
+                                <textarea id="cfgAiSystem" rows="8" placeholder="AI 扩写 system prompt"></textarea>
+                            </label>
+                            <label>User 模板（可用 {scene} {count}）
+                                <textarea id="cfgAiUserTemplate" rows="4" placeholder="发给扩写模型的用户模板"></textarea>
+                            </label>
+                            <div class="config-actions" style="margin-top:0;">
+                                <button type="button" class="btn btn-primary btn-sm" id="btnSaveAiPrompt">保存 AI 提示词</button>
+                                <button type="button" class="btn btn-ghost btn-sm" id="btnResetAiPrompt">恢复默认</button>
+                            </div>
+                        </div>
+
+                        <label><span id="cfgCheckpointTitle">Checkpoint</span>
+                            <select id="cfgCheckpoint"></select>
+                        </label>
+                        <p class="config-hint" id="cfgEngineHint" hidden></p>
+                        <label>宽<input type="number" id="cfgWidth" min="64" step="8"></label>
+                        <label>高<input type="number" id="cfgHeight" min="64" step="8"></label>
+                        <label>Steps<input type="number" id="cfgSteps" min="1" max="150"></label>
+                        <label>CFG<input type="number" id="cfgCfg" min="0" max="30" step="0.1"></label>
+                        <label>Sampler<select id="cfgSampler"></select></label>
+                        <label>Scheduler<select id="cfgScheduler"></select></label>
+                        <label>Negative
+                            <textarea id="cfgNegative" rows="3"></textarea>
+                        </label>
+
+                        <div id="cfgHiresBlock">
+                            <label class="config-check"><input type="checkbox" id="cfgEnableHires"> 高清修复（默认关）</label>
+                            <div id="hiresRow" hidden>
+                                <label>Hires 宽<input type="number" id="cfgHiresW" min="64" step="8"></label>
+                                <label>Hires 高<input type="number" id="cfgHiresH" min="64" step="8"></label>
+                            </div>
+                        </div>
+
+                        <div id="cfgUpscaleBlock">
+                            <label class="config-check"><input type="checkbox" id="cfgEnableUpscale"> 2× 放大</label>
+                            <p class="config-hint">勾选后点「开始生成」即接入 Upscale 节点（不必先保存预设）。Krea2 出图分辨率会变为约 2 倍。</p>
+                            <label id="cfgUpscaleModelLabel">放大模型
+                                <select id="cfgUpscaleModel"></select>
+                            </label>
+                        </div>
+
+                        <label id="cfgLora1Label">LoRA1
+                            <select id="cfgLora1"></select>
+                            <input type="number" id="cfgLora1Str" min="-2" max="2" step="0.05" placeholder="强度">
+                        </label>
+                        <label id="cfgLora2Label">LoRA2
+                            <select id="cfgLora2"></select>
+                            <input type="number" id="cfgLora2Str" min="-2" max="2" step="0.05" placeholder="强度">
+                        </label>
+                        <label id="cfgLora3Label">LoRA3
+                            <select id="cfgLora3"></select>
+                            <input type="number" id="cfgLora3Str" min="-2" max="2" step="0.05" placeholder="强度">
+                        </label>
+
+                        <div class="config-ai-box" id="cfgExportBox">
+                            <div class="config-ai-title">壁纸 / 边框导出</div>
+                            <p class="config-hint">中间图下方「导出当前 / 导出选中」会用这里的设置。</p>
+                            <label class="config-check"><input type="checkbox" id="exportWithFrame" checked> 导出时加小红书边框</label>
+                            <label>边框预设
+                                <select id="framePresetSelect"></select>
+                            </label>
+                            <label>导出文件夹
+                                <div class="sticker-export-folder-row" style="display:flex;gap:6px;">
+                                    <input type="text" id="exportFolderPath" placeholder="选择或粘贴完整路径，如 D:\素材\导出" style="flex:1;">
+                                    <button type="button" class="btn btn-ghost btn-sm" id="btnPickFolder">选择</button>
+                                </div>
+                            </label>
+                            <p class="config-hint" id="exportFolderHint">点「选择」用浏览器授权直写；刷新后会尽量恢复。也可粘贴完整绝对路径（D:\…）。</p>
+                        </div>
+
+                        <div class="config-actions">
+                            <button type="button" class="btn btn-primary" id="btnSavePreset">保存预设</button>
+                            <button type="button" class="btn btn-ghost" id="btnDeletePreset">删除</button>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <div class="lightbox" id="lightbox" aria-hidden="true">
+        <button type="button" class="btn btn-ghost lightbox-close" id="btnLightboxClose">关闭 ✕</button>
+        <div class="lightbox-inner">
+            <div class="lightbox-stage" id="lightboxStage"></div>
+            <div class="lightbox-nav">
+                <button type="button" class="btn btn-ghost" id="btnLightboxPrev">◀</button>
+                <span id="lightboxIndexLabel">0 / 0</span>
+                <button type="button" class="btn btn-ghost" id="btnLightboxNext">▶</button>
+                <button type="button" class="btn btn-ghost btn-sm" id="btnCopyLightboxPrompt">复制提示词</button>
+                <button type="button" class="btn btn-ghost btn-sm" id="btnRerenderLightbox" title="从 Comfy output 或本机选图替换">换图</button>
+                <button type="button" class="btn btn-accent2 btn-sm" id="btnExportLightbox">导出当前</button>
+            </div>
+            <div class="prompt-box lightbox-prompt" id="lightboxPromptBox" hidden>
+                <pre id="lightboxPromptText"></pre>
+            </div>
+        </div>
+    </div>
+
+    <div class="import-modal" id="importModal" aria-hidden="true">
+        <div class="import-modal-card" role="dialog" aria-labelledby="importModalTitle">
+            <div class="import-modal-head">
+                <strong id="importModalTitle">换图 · 手动导入</strong>
+                <button type="button" class="btn btn-ghost btn-sm" id="btnImportModalClose">关闭</button>
+            </div>
+            <p class="import-modal-hint" id="importModalHint">点下方缩略图导入，或「本机选图」。需要时再点「打开文件夹」。</p>
+            <div class="import-modal-path">
+                <code id="importOutputPath">查找 output…</code>
+                <button type="button" class="btn btn-ghost btn-sm" id="btnOpenOutputFolder">打开文件夹</button>
+                <button type="button" class="btn btn-ghost btn-sm" id="btnRefreshOutputList">刷新列表</button>
+                <button type="button" class="btn btn-accent2 btn-sm" id="btnPickLocalImage">本机选图</button>
+                <input type="file" id="importLocalFile" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" hidden>
+            </div>
+            <div class="import-modal-grid" id="importModalGrid"></div>
+        </div>
+    </div>
+
+    <script src="js/sticker-frame.js?v=9"></script>
+    <script>
+    (function () {
+        const PLACEHOLDER_AI = '描述服饰、动作、氛围即可，例如：蕾丝连衣裙，白色长筒袜，公园长椅，夜晚\\n数量由上方数字控制';
+        const PLACEHOLDER_MANUAL = '粘贴多条服饰动作 prompt，用 --- 分隔，例如：\\nwhite lace dress, sitting on bench...\\n---\\nnavy swimsuit, pool edge...';
+        const PLACEHOLDER_AI_KREA2 = '用自然语言简述想要的画面变化（服饰/姿势/场景/光影）。Krea2 会扩写成英文句子，不是 tag。\\n建议数量保持 1（单张较慢）';
+        const PLACEHOLDER_MANUAL_KREA2 = '直接写英文自然语言画面描述（推荐）。多张用 --- 分隔。\\n例：\\nA close-up of a girl in a white lace dress on a park bench at dusk, cool cyan grading, soft overexposed light.\\n---\\nShe stands at a rainy bus stop in a navy coat, neon reflections on wet pavement.';
+
+        function isKrea2Preset(p) {
+            const preset = p || activePreset() || {};
+            return preset.workflowEngine === 'krea2'
+                || /\.gguf$/i.test(String(preset.checkpointName || preset.unetName || ''))
+                || /krea2/i.test(String(preset.name || ''));
+        }
+
+        function setPromptMode(mode) {
+            const radio = document.querySelector(`input[name="promptMode"][value="${mode}"]`);
+            if (radio) radio.checked = true;
+            syncModeUi();
+        }
+        const SESSION_KEY = 'comfy_generate_session_v1';
+        const EXPORT_HANDLE_IDB = 'comfy_generate_export_handles_v1';
+        const EXPORT_HANDLE_KEY = 'exportDir';
+
+        function isAbsoluteExportPath(p) {
+            const s = String(p || '').trim();
+            if (!s) return false;
+            if (/^[a-zA-Z]:[\\/]/.test(s)) return true;
+            if (s.startsWith('\\\\')) return true;
+            if (s.startsWith('/')) return true;
+            return false;
+        }
+
+        function setExportFolderHint(text, isWarn) {
+            const el = $('exportFolderHint');
+            if (!el) return;
+            el.textContent = text;
+            el.style.color = isWarn ? 'var(--accent)' : '';
+        }
+
+        function openExportIdb() {
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open(EXPORT_HANDLE_IDB, 1);
+                req.onupgradeneeded = () => {
+                    const db = req.result;
+                    if (!db.objectStoreNames.contains('handles')) db.createObjectStore('handles');
+                };
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error || new Error('IndexedDB 打开失败'));
+            });
+        }
+
+        async function saveExportDirHandle(handle) {
+            if (!handle) return;
+            const db = await openExportIdb();
+            await new Promise((resolve, reject) => {
+                const tx = db.transaction('handles', 'readwrite');
+                tx.objectStore('handles').put(handle, EXPORT_HANDLE_KEY);
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => reject(tx.error);
+            });
+            db.close();
+        }
+
+        async function loadExportDirHandle() {
+            try {
+                const db = await openExportIdb();
+                const handle = await new Promise((resolve, reject) => {
+                    const tx = db.transaction('handles', 'readonly');
+                    const req = tx.objectStore('handles').get(EXPORT_HANDLE_KEY);
+                    req.onsuccess = () => resolve(req.result || null);
+                    req.onerror = () => reject(req.error);
+                });
+                db.close();
+                return handle || null;
+            } catch (_) {
+                return null;
+            }
+        }
+
+        async function clearExportDirHandleStore() {
+            try {
+                const db = await openExportIdb();
+                await new Promise((resolve, reject) => {
+                    const tx = db.transaction('handles', 'readwrite');
+                    tx.objectStore('handles').delete(EXPORT_HANDLE_KEY);
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(tx.error);
+                });
+                db.close();
+            } catch (_) {}
+        }
+
+        async function ensureExportDirPermission(handle) {
+            if (!handle) return null;
+            try {
+                let perm = await handle.queryPermission({ mode: 'readwrite' });
+                if (perm === 'prompt') {
+                    perm = await handle.requestPermission({ mode: 'readwrite' });
+                }
+                return perm === 'granted' ? handle : null;
+            } catch (_) {
+                return null;
+            }
+        }
+
+        async function restoreExportDirHandle() {
+            const stored = await loadExportDirHandle();
+            const granted = await ensureExportDirPermission(stored);
+            state.exportDirHandle = granted;
+            if (granted) {
+                if (!isAbsoluteExportPath(els.exportFolderPath.value)) {
+                    els.exportFolderPath.value = granted.name;
+                }
+                setExportFolderHint(`已恢复浏览器直写：${granted.name}。若目标不对请重新「选择」，或粘贴完整路径 D:\\…`);
+                return true;
+            }
+            const pathVal = (els.exportFolderPath.value || '').trim();
+            if (pathVal && !isAbsoluteExportPath(pathVal)) {
+                setExportFolderHint(
+                    `当前「${pathVal}」不是完整路径，刷新后浏览器授权已失效。请重新点「选择」，或粘贴如 D:\\素材\\${pathVal}`,
+                    true
+                );
+            }
+            return false;
+        }
+
+        const state = {
+            presets: [],
+            activePresetId: '',
+            defaults: null,
+            options: null,
+            images: [], // {url, prompt, selected, framedUrl?}
+            viewMode: 'single', // grid | single
+            singleIndex: 0,
+            lightboxIndex: 0,
+            exportDirHandle: null,
+            generating: false,
+            framePreset: 'paper-collage',
+            jobId: '',
+            pollTimer: null,
+            resultsRenderToken: 0,
+            lightboxPaintToken: 0,
+            framePreviewCache: new Map(),
+            frameRenderChain: Promise.resolve(),
+            importTargetIndex: -1
+        };
+
+        const $ = (id) => document.getElementById(id);
+        const els = {
+            layout: $('layout'),
+            comfyStatus: $('comfyStatus'),
+            presetList: $('presetList'),
+            resultsEmpty: $('resultsEmpty'),
+            resultsGrid: $('resultsGrid'),
+            singleView: $('singleView'),
+            singleStage: $('singleStage'),
+            singleIndexLabel: $('singleIndexLabel'),
+            resultMeta: $('resultMeta'),
+            sceneInput: $('sceneInput'),
+            countWrap: $('countWrap'),
+            countInput: $('countInput'),
+            progressText: $('progressText'),
+            workspaceBottom: $('workspaceBottom'),
+            activePresetLabel: $('activePresetLabel'),
+            btnGenerate: $('btnGenerate'),
+            exportWithFrame: $('exportWithFrame'),
+            framePresetSelect: $('framePresetSelect'),
+            exportFolderPath: $('exportFolderPath'),
+            btnExportCurrent: $('btnExportCurrent'),
+            btnExportSelected: $('btnExportSelected'),
+            btnExportLightbox: $('btnExportLightbox'),
+            btnToggleConfig: $('btnToggleConfig'),
+            btnTogglePresets: $('btnTogglePresets'),
+            composerDock: $('composerDock'),
+            lightbox: $('lightbox'),
+            lightboxStage: $('lightboxStage'),
+            lightboxIndexLabel: $('lightboxIndexLabel'),
+            btnViewGrid: $('btnViewGrid'),
+            btnViewSingle: $('btnViewSingle')
+        };
+
+        function currentMode() {
+            const checked = document.querySelector('input[name="promptMode"]:checked');
+            return checked ? checked.value : 'ai';
+        }
+
+        function syncRunBusy() {
+            if (els.workspaceBottom) els.workspaceBottom.classList.toggle('busy', !!state.generating);
+            const btnCancel = $('btnCancelGenerate');
+            if (btnCancel) btnCancel.hidden = !state.generating;
+        }
+
+        function setProgress(msg) {
+            const text = msg == null ? '' : String(msg);
+            const display = text.trim()
+                ? text
+                : (state.generating ? '任务进行中…' : '就绪 · 选好预设后点「开始生成」');
+            if (els.progressText) els.progressText.textContent = display;
+            if (state.generating && els.resultMeta) {
+                els.resultMeta.textContent = display;
+            }
+            syncRunBusy();
+        }
+
+        function setGenerating(on) {
+            state.generating = !!on;
+            if (els.btnGenerate) els.btnGenerate.disabled = !!on;
+            syncRunBusy();
+        }
+
+        function loadSession() {
+            try {
+                return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+            } catch (_) {
+                return null;
+            }
+        }
+
+        function saveSession(patch = {}) {
+            const prev = loadSession() || {};
+            const images = (patch.images !== undefined ? patch.images : (state.images || []))
+                .map((img) => ({
+                    url: img.url,
+                    prompt: img.prompt || '',
+                    selected: img.selected !== false
+                }));
+            const next = {
+                ...prev,
+                ...patch,
+                activePresetId: patch.activePresetId !== undefined ? patch.activePresetId : state.activePresetId,
+                mode: patch.mode !== undefined ? patch.mode : currentMode(),
+                scene: patch.scene !== undefined ? patch.scene : (els.sceneInput.value || ''),
+                count: patch.count !== undefined ? patch.count : (Number(els.countInput.value) || 1),
+                viewMode: patch.viewMode !== undefined ? patch.viewMode : state.viewMode,
+                framePreset: patch.framePreset !== undefined ? patch.framePreset : state.framePreset,
+                exportFolderPath: patch.exportFolderPath !== undefined
+                    ? patch.exportFolderPath
+                    : (els.exportFolderPath.value || ''),
+                jobId: patch.jobId !== undefined ? patch.jobId : (state.jobId || ''),
+                status: patch.status !== undefined ? patch.status : prev.status || 'idle',
+                progressText: patch.progressText !== undefined ? patch.progressText : (els.progressText.textContent || ''),
+                images,
+                savedAt: Date.now()
+            };
+            try {
+                localStorage.setItem(SESSION_KEY, JSON.stringify(next));
+            } catch (e) {
+                console.warn('session save failed', e);
+            }
+            return next;
+        }
+
+        function stopJobPoll() {
+            if (state.pollTimer) {
+                clearInterval(state.pollTimer);
+                state.pollTimer = null;
+            }
+        }
+
+        function applyImagesFromJob(images, opts = {}) {
+            clearFramePreviewCache();
+            state.images = (images || []).map((img) => ({
+                url: img.url,
+                prompt: img.prompt || '',
+                selected: img.selected !== false
+            }));
+            if (opts.resetIndex !== false) state.singleIndex = 0;
+            return refreshResults();
+        }
+
+        async function applyJobSnapshot(job, opts = {}) {
+            if (!job) return;
+            if (job.id) state.jobId = job.id;
+            if (job.message) setProgress(job.message);
+            if (job.status === 'running') {
+                setGenerating(true);
+                if (Array.isArray(job.images) && job.images.length && !state.images.length) {
+                    await applyImagesFromJob(job.images, { resetIndex: false });
+                }
+                saveSession({
+                    status: 'running',
+                    jobId: job.id,
+                    progressText: job.message || '任务进行中…',
+                    scene: job.scene || els.sceneInput.value,
+                    mode: job.mode || currentMode(),
+                    count: job.count || Number(els.countInput.value) || 1
+                });
+                return;
+            }
+            if (job.status === 'done') {
+                stopJobPoll();
+                setGenerating(false);
+                await applyImagesFromJob(job.images || []);
+                const sec = Math.round((job.elapsedMs || 0) / 1000);
+                const msg = `完成 ${(job.images || []).length} 张` +
+                    (sec ? ` · ${sec}s` : '') +
+                    (job.source ? ` · ${job.source}` : '');
+                setProgress(msg);
+                saveSession({
+                    status: 'done',
+                    jobId: job.id,
+                    progressText: msg,
+                    images: state.images,
+                    batchId: job.batchId || ''
+                });
+                if (opts.alertDone) {
+                    // silent restore
+                }
+                return;
+            }
+            if (job.status === 'error') {
+                stopJobPoll();
+                setGenerating(false);
+                setProgress('');
+                saveSession({
+                    status: 'error',
+                    jobId: job.id,
+                    progressText: '',
+                    error: job.error || '生成失败'
+                });
+                if (opts.alertError) alert('生成失败：' + (job.error || '未知错误'));
+            }
+        }
+
+        function startJobPoll(jobId) {
+            stopJobPoll();
+            if (!jobId) return;
+            const tick = async () => {
+                try {
+                    const res = await fetch(`/api/comfy/generate-jobs/${encodeURIComponent(jobId)}`);
+                    const data = await res.json();
+                    if (!res.ok || !data.ok || !data.job) return;
+                    await applyJobSnapshot(data.job, { alertError: true });
+                    if (data.job.status !== 'running') stopJobPoll();
+                } catch (e) {
+                    console.warn('job poll failed', e);
+                }
+            };
+            tick();
+            state.pollTimer = setInterval(tick, 2000);
+        }
+
+        async function cancelCurrentGenerate() {
+            const jobId = state.jobId;
+            setProgress('正在取消并解除队列占用…');
+            try {
+                if (jobId) {
+                    await fetch(`/api/comfy/generate-jobs/${encodeURIComponent(jobId)}/cancel`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ reason: '用户取消生成' })
+                    });
+                }
+                await fetch('/api/comfy/generate-jobs/cancel-all', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reason: '用户解除队列占用' })
+                });
+            } catch (_) {}
+            stopJobPoll();
+            setGenerating(false);
+            setProgress('已取消 · 可重新开始生成');
+            saveSession({ status: 'idle', jobId: '', progressText: '已取消 · 可重新开始生成' });
+        }
+
+        async function restoreSession() {
+            const session = loadSession();
+            let jobId = session?.jobId || '';
+
+            if (session) {
+                if (typeof session.scene === 'string') els.sceneInput.value = session.scene;
+                if (session.count) els.countInput.value = session.count;
+                if (session.viewMode === 'grid' || session.viewMode === 'single') {
+                    state.viewMode = session.viewMode;
+                    syncViewToggle();
+                }
+                if (session.framePreset && els.framePresetSelect.querySelector(`option[value="${session.framePreset}"]`)) {
+                    els.framePresetSelect.value = session.framePreset;
+                    state.framePreset = session.framePreset;
+                }
+                if (typeof session.exportFolderPath === 'string' && session.exportFolderPath) {
+                    els.exportFolderPath.value = session.exportFolderPath;
+                }
+                if (session.activePresetId && state.presets.some((p) => p.id === session.activePresetId)) {
+                    await selectPreset(session.activePresetId);
+                }
+                // Krea2 始终默认手动；非 Krea2 才恢复上次模式
+                if (!isKrea2Preset(activePreset()) && (session.mode === 'manual' || session.mode === 'ai')) {
+                    const radio = document.querySelector(`input[name="promptMode"][value="${session.mode}"]`);
+                    if (radio) radio.checked = true;
+                    syncModeUi();
+                }
+                if (Array.isArray(session.images) && session.images.length) {
+                    await applyImagesFromJob(session.images);
+                } else if (state.viewMode === 'grid') {
+                    // 无图时网格空壳会把底栏挤扁，初始化统一用单图骨架
+                    state.viewMode = 'single';
+                    syncViewToggle();
+                }
+                if (session.progressText && session.status === 'done') {
+                    setProgress(session.progressText);
+                }
+            }
+
+            await restoreExportDirHandle();
+
+            // Prefer live server job over stale local "running"
+            try {
+                const activeRes = await fetch('/api/comfy/generate-jobs/active');
+                const activeData = await activeRes.json();
+                if (activeData.ok && activeData.job) {
+                    jobId = activeData.job.id;
+                    await applyJobSnapshot(activeData.job);
+                    startJobPoll(jobId);
+                    return;
+                }
+            } catch (_) {}
+
+            if (jobId) {
+                try {
+                    const res = await fetch(`/api/comfy/generate-jobs/${encodeURIComponent(jobId)}`);
+                    const data = await res.json();
+                    if (res.ok && data.ok && data.job) {
+                        await applyJobSnapshot(data.job, { alertError: false });
+                        if (data.job.status === 'running') startJobPoll(jobId);
+                        return;
+                    }
+                } catch (_) {}
+            }
+
+            if (session?.status === 'running' && !jobId) {
+                setProgress('上次任务状态未知（可重新生成）');
+                saveSession({ status: 'idle' });
+            }
+        }
+
+        async function copyText(text) {
+            const value = String(text || '').trim();
+            if (!value) {
+                alert('当前没有可复制的提示词');
+                return;
+            }
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(value);
+                } else {
+                    const ta = document.createElement('textarea');
+                    ta.value = value;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    ta.remove();
+                }
+                setProgress('提示词已复制');
+            } catch (e) {
+                alert('复制失败：' + e.message);
+            }
+        }
+
+        function syncSinglePromptBox() {
+            const box = $('singlePromptBox');
+            const pre = $('singlePromptText');
+            const bottom = els.workspaceBottom || $('workspaceBottom');
+            if (!box || !pre) return;
+            if (state.viewMode === 'grid') {
+                box.hidden = true;
+                return;
+            }
+            const item = state.images[state.singleIndex];
+            if (!item || !item.prompt) {
+                box.hidden = true;
+                pre.textContent = '';
+                if (bottom) bottom.classList.add('is-single-only');
+                return;
+            }
+            box.hidden = false;
+            pre.textContent = item.prompt;
+            if (bottom) bottom.classList.remove('is-single-only');
+        }
+
+        function syncDockBaseFromConfig() {
+            const dock = $('dockBasePrompt');
+            const cfg = $('cfgBasePrompt');
+            if (!dock || !cfg) return;
+            if (document.activeElement === dock) return;
+            dock.value = cfg.value || '';
+        }
+
+        function wireBasePromptSync() {
+            const dock = $('dockBasePrompt');
+            const cfg = $('cfgBasePrompt');
+            if (!dock || !cfg) return;
+            let syncing = false;
+            const copy = (from, to) => {
+                if (syncing) return;
+                syncing = true;
+                to.value = from.value;
+                syncing = false;
+            };
+            dock.addEventListener('input', () => copy(dock, cfg));
+            cfg.addEventListener('input', () => {
+                if (document.activeElement !== dock) copy(cfg, dock);
+            });
+        }
+
+        function syncLightboxPromptBox() {
+            const box = $('lightboxPromptBox');
+            const pre = $('lightboxPromptText');
+            if (!box || !pre) return;
+            const item = state.images[state.lightboxIndex];
+            if (!item || !item.prompt) {
+                box.hidden = true;
+                pre.textContent = '';
+                return;
+            }
+            box.hidden = false;
+            pre.textContent = item.prompt;
+        }
+
+        function buildPromptMeta(item, index) {
+            const wrap = document.createElement('div');
+            wrap.className = 'prompt-meta';
+            const toggle = document.createElement('button');
+            toggle.type = 'button';
+            toggle.className = 'btn btn-ghost btn-sm';
+            toggle.dataset.promptToggle = '1';
+            toggle.textContent = '提示词';
+            const copyBtn = document.createElement('button');
+            copyBtn.type = 'button';
+            copyBtn.className = 'btn btn-ghost btn-sm';
+            copyBtn.textContent = '复制';
+            const pre = document.createElement('pre');
+            pre.className = 'prompt-snippet';
+            pre.hidden = true;
+            pre.textContent = item.prompt || '（无提示词）';
+            toggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const opening = pre.hidden;
+                const grid = els.resultsGrid || $('resultsGrid');
+                if (grid) {
+                    grid.querySelectorAll('.prompt-meta').forEach((meta) => {
+                        const snip = meta.querySelector('.prompt-snippet');
+                        const btn = meta.querySelector('[data-prompt-toggle]');
+                        if (!snip || !btn) return;
+                        if (meta === wrap && opening) {
+                            snip.hidden = false;
+                            btn.textContent = '收起';
+                        } else {
+                            snip.hidden = true;
+                            btn.textContent = '提示词';
+                        }
+                    });
+                } else {
+                    pre.hidden = !opening;
+                    toggle.textContent = pre.hidden ? '提示词' : '收起';
+                }
+            });
+            copyBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                copyText(item.prompt || '');
+            });
+            const row = document.createElement('div');
+            row.className = 'prompt-meta-actions';
+            row.appendChild(toggle);
+            row.appendChild(copyBtn);
+            wrap.appendChild(row);
+            wrap.appendChild(pre);
+            return wrap;
+        }
+
+        let aiSettingsDefaults = null;
+
+        async function loadAiSettings() {
+            const res = await fetch('/api/comfy/generate-settings');
+            const data = await res.json();
+            if (!res.ok || !data.ok) throw new Error(data.error || '加载 AI 提示词失败');
+            aiSettingsDefaults = data.defaults || null;
+            const s = data.settings || {};
+            $('cfgAiSystem').value = s.clothingExpandSystem || '';
+            $('cfgAiUserTemplate').value = s.clothingExpandUserTemplate || '';
+        }
+
+        async function saveAiSettings() {
+            const res = await fetch('/api/comfy/generate-settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    clothingExpandSystem: $('cfgAiSystem').value,
+                    clothingExpandUserTemplate: $('cfgAiUserTemplate').value
+                })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+                alert(data.error || '保存失败');
+                return;
+            }
+            const s = data.settings || {};
+            $('cfgAiSystem').value = s.clothingExpandSystem || '';
+            $('cfgAiUserTemplate').value = s.clothingExpandUserTemplate || '';
+            alert('AI 提示词已保存');
+        }
+
+        async function resetAiSettings() {
+            if (!aiSettingsDefaults) {
+                await loadAiSettings();
+            }
+            if (!aiSettingsDefaults) return;
+            $('cfgAiSystem').value = aiSettingsDefaults.clothingExpandSystem || '';
+            $('cfgAiUserTemplate').value = aiSettingsDefaults.clothingExpandUserTemplate || '';
+            await saveAiSettings();
+        }
+
+        function syncModeUi() {
+            const mode = currentMode();
+            const krea2 = isKrea2Preset();
+            if (els.countWrap) {
+                els.countWrap.hidden = mode !== 'ai';
+                els.countWrap.style.display = mode === 'ai' ? 'inline-flex' : 'none';
+            }
+            if (mode === 'ai') {
+                els.sceneInput.placeholder = (krea2 ? PLACEHOLDER_AI_KREA2 : PLACEHOLDER_AI).replace(/\\n/g, '\n');
+            } else {
+                els.sceneInput.placeholder = (krea2 ? PLACEHOLDER_MANUAL_KREA2 : PLACEHOLDER_MANUAL).replace(/\\n/g, '\n');
+            }
+        }
+
+        function syncExportButtons() {
+            const hasImages = state.images.length > 0;
+            const selectedCount = state.images.filter((x) => x.selected).length;
+            const hasSelected = selectedCount > 0;
+            if (els.btnExportCurrent) els.btnExportCurrent.disabled = !hasImages;
+            if (els.btnExportSelected) els.btnExportSelected.disabled = !hasSelected;
+            if (els.btnExportLightbox) els.btnExportLightbox.disabled = !hasImages;
+            const gridExport = $('btnGridExportSelected');
+            if (gridExport) gridExport.disabled = !hasSelected;
+            const meta = $('gridToolbarMeta');
+            if (meta) {
+                meta.textContent = hasImages
+                    ? `${state.images.length} 张 · 已选 ${selectedCount}`
+                    : '0 张 · 已选 0';
+            }
+        }
+
+        function syncViewChrome() {
+            const isGrid = state.viewMode === 'grid';
+            const bottom = els.workspaceBottom || $('workspaceBottom');
+            if (bottom) {
+                bottom.classList.toggle('is-grid', isGrid);
+                if (isGrid) bottom.classList.remove('is-single-only');
+            }
+            const setHidden = (id, hidden) => {
+                const el = $(id);
+                if (el) el.hidden = hidden;
+            };
+            setHidden('gridToolbarDivider', !isGrid);
+            setHidden('gridToolbarMeta', !isGrid);
+            setHidden('btnGridSelectAll', !isGrid);
+            setHidden('btnGridSelectNone', !isGrid);
+            setHidden('btnGridExportSelected', !isGrid);
+
+            const basePane = $('dockBasePane');
+            const promptBox = $('singlePromptBox');
+            if (isGrid) {
+                if (promptBox) promptBox.hidden = true;
+                if (basePane) basePane.hidden = false;
+                syncDockBaseFromConfig();
+            } else {
+                if (basePane) basePane.hidden = true;
+                syncSinglePromptBox();
+            }
+            syncViewToggle();
+            syncExportButtons();
+        }
+
+        function activePreset() {
+            return state.presets.find((p) => p.id === state.activePresetId) || null;
+        }
+
+        function fillSelect(sel, values, current) {
+            const list = Array.isArray(values) ? values.slice() : [];
+            if (current && !list.includes(current)) list.unshift(current);
+            sel.innerHTML = list.map((v) => `<option value="${escapeAttr(v)}">${escapeHtml(v)}</option>`).join('');
+            if (current) sel.value = current;
+        }
+
+        function escapeHtml(s) {
+            return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+        function escapeAttr(s) { return escapeHtml(s).replace(/'/g, '&#39;'); }
+
+        function renderPresetList() {
+            if (!state.presets.length) {
+                els.presetList.innerHTML = '<div class="progress-text">还没有预设，点「＋新建」创建一份底模配置。</div>';
+                els.activePresetLabel.textContent = '未选择预设';
+                return;
+            }
+            els.presetList.innerHTML = state.presets.map((p) => `
+                <div class="preset-item${p.id === state.activePresetId ? ' active' : ''}" data-id="${escapeAttr(p.id)}">
+                    <div class="name">${escapeHtml(p.name || '未命名')}</div>
+                    <div class="meta">${escapeHtml(
+                        p.workflowEngine === 'krea2'
+                            ? `Krea2 · ${(p.checkpointName || p.unetName || '').split(/[\\\\/]/).pop() || 'GGUF'}`
+                            : ((p.checkpointName || '').split(/[\\\\/]/).pop() || '未设 checkpoint')
+                    )}</div>
+                </div>
+            `).join('');
+            els.presetList.querySelectorAll('.preset-item').forEach((el) => {
+                el.addEventListener('click', () => selectPreset(el.dataset.id));
+            });
+            const p = activePreset();
+            els.activePresetLabel.textContent = p ? `当前：${p.name}` : '未选择预设';
+        }
+
+        function readConfigForm() {
+            const dock = $('dockBasePrompt');
+            const cfgBase = $('cfgBasePrompt');
+            const basePane = $('dockBasePane');
+            if (dock && cfgBase && basePane && !basePane.hidden) {
+                cfgBase.value = dock.value;
+            }
+            const lora = (i) => {
+                const name = $(`cfgLora${i}`).value;
+                const strength = Number($(`cfgLora${i}Str`).value);
+                return {
+                    name: name || '(none)',
+                    strengthModel: Number.isFinite(strength) ? strength : 0,
+                    strengthClip: 1
+                };
+            };
+            const prev = activePreset() || {};
+            const checkpointName = $('cfgCheckpoint').value;
+            const isKrea2 = prev.workflowEngine === 'krea2'
+                || /\.gguf$/i.test(checkpointName)
+                || /krea2/i.test(checkpointName)
+                || /krea2/i.test(($('cfgName').value || ''));
+            return {
+                id: state.activePresetId || undefined,
+                name: $('cfgName').value.trim() || '未命名预设',
+                workflowEngine: isKrea2 ? 'krea2' : (prev.workflowEngine || 'sdxl'),
+                clipName: isKrea2 ? (prev.clipName || 'qwen3vl_4b_fp8_scaled.safetensors') : (prev.clipName || ''),
+                clipType: isKrea2 ? (prev.clipType || 'krea2') : (prev.clipType || ''),
+                vaeName: isKrea2 ? (prev.vaeName || 'qwen_image_vae.safetensors') : (prev.vaeName || ''),
+                unetName: isKrea2 ? (checkpointName || prev.unetName || '') : (prev.unetName || ''),
+                basePrompt: $('cfgBasePrompt').value,
+                checkpointName,
+                width: Number($('cfgWidth').value) || 1024,
+                height: Number($('cfgHeight').value) || 1536,
+                steps: Number($('cfgSteps').value) || 30,
+                cfg: Number($('cfgCfg').value) || 3,
+                sampler: $('cfgSampler').value,
+                scheduler: $('cfgScheduler').value,
+                negativePrompt: $('cfgNegative').value,
+                enableHires: isKrea2 ? false : $('cfgEnableHires').checked,
+                hiresWidth: Number($('cfgHiresW').value) || 1080,
+                hiresHeight: Number($('cfgHiresH').value) || 1920,
+                enableUpscale: $('cfgEnableUpscale').checked,
+                upscaleModel: $('cfgUpscaleModel').value,
+                loras: isKrea2
+                    ? [lora(1), { name: '(none)', strengthModel: 0, strengthClip: 0 }, { name: '(none)', strengthModel: 0, strengthClip: 0 }]
+                    : [lora(1), lora(2), lora(3)]
+            };
+        }
+
+        function applyPresetToForm(preset) {
+            const p = preset || state.defaults || {};
+            $('cfgName').value = p.name || '';
+            $('cfgBasePrompt').value = p.basePrompt || '';
+            syncDockBaseFromConfig();
+            fillSelect($('cfgCheckpoint'), state.options?.checkpoints || [], p.checkpointName || p.unetName || '');
+            $('cfgWidth').value = p.width ?? 1024;
+            $('cfgHeight').value = p.height ?? 1536;
+            $('cfgSteps').value = p.steps ?? 30;
+            $('cfgCfg').value = p.cfg ?? 3;
+            fillSelect($('cfgSampler'), state.options?.defaults?.samplerOptions || state.defaults?.samplerOptions || [], p.sampler || '');
+            fillSelect($('cfgScheduler'), state.options?.defaults?.schedulerOptions || state.defaults?.schedulerOptions || [], p.scheduler || '');
+            $('cfgNegative').value = p.negativePrompt || '';
+            $('cfgEnableHires').checked = Boolean(p.enableHires);
+            $('cfgHiresW').value = p.hiresWidth ?? 1080;
+            $('cfgHiresH').value = p.hiresHeight ?? 1920;
+            $('cfgEnableUpscale').checked = Boolean(p.enableUpscale);
+            fillSelect($('cfgUpscaleModel'), state.options?.upscaleModels || [], p.upscaleModel || '');
+            const loras = Array.isArray(p.loras) ? p.loras : [];
+            const loraNames = state.options?.loras || [];
+            for (let i = 1; i <= 3; i++) {
+                const l = loras[i - 1] || {};
+                fillSelect($(`cfgLora${i}`), ['(none)', ...loraNames], l.name || '(none)');
+                $(`cfgLora${i}Str`).value = l.strengthModel ?? 0;
+            }
+            syncConfigFormForEngine(p);
+        }
+
+        /** Show only controls that map to real workflow nodes for this preset. */
+        function syncConfigFormForEngine(preset) {
+            const p = preset || {};
+            const isKrea2 = p.workflowEngine === 'krea2'
+                || /\.gguf$/i.test(String(p.checkpointName || p.unetName || ''));
+            const title = $('cfgCheckpointTitle');
+            if (title) title.textContent = isKrea2 ? 'Unet (GGUF)' : 'Checkpoint';
+            const hint = $('cfgEngineHint');
+            if (hint) {
+                hint.hidden = !isKrea2;
+                if (isKrea2) {
+                    hint.textContent = 'Krea2：默认「手动 Prompt」+ 自然语言。工作流对照 Unet / 底模 / 负向 / 尺寸 / KSampler / LoRA1；可勾选 2× 放大。无高清修复、无 LoRA2/3。若用 AI 扩写会走自然语言模板（不是旧版 tag）。';
+                }
+            }
+            const hiresBlock = $('cfgHiresBlock');
+            if (hiresBlock) hiresBlock.hidden = isKrea2;
+            if (isKrea2) {
+                $('cfgEnableHires').checked = false;
+                $('hiresRow').hidden = true;
+            } else {
+                $('hiresRow').hidden = !$('cfgEnableHires').checked;
+            }
+            const lora2 = $('cfgLora2Label');
+            const lora3 = $('cfgLora3Label');
+            if (lora2) lora2.hidden = isKrea2;
+            if (lora3) lora3.hidden = isKrea2;
+            const upModelLabel = $('cfgUpscaleModelLabel');
+            if (upModelLabel) upModelLabel.hidden = !$('cfgEnableUpscale').checked;
+            const hiresCb = $('cfgEnableHires');
+            const upCb = $('cfgEnableUpscale');
+            if (hiresCb) hiresCb.disabled = false;
+            if (upCb) upCb.disabled = false;
+        }
+
+        async function selectPreset(id) {
+            state.activePresetId = id;
+            try {
+                await fetch(`/api/comfy/generate-presets/${encodeURIComponent(id)}/activate`, { method: 'POST' });
+            } catch (_) {}
+            renderPresetList();
+            applyPresetToForm(activePreset());
+            // Krea2：默认手动自然语言 Prompt（旧版 tag 扩写不适合）
+            if (isKrea2Preset(activePreset())) {
+                setPromptMode('manual');
+                if (Number(els.countInput.value) > 1) els.countInput.value = 1;
+                saveSession({ activePresetId: id, mode: 'manual', count: Number(els.countInput.value) || 1 });
+            } else {
+                syncModeUi();
+                saveSession({ activePresetId: id });
+            }
+        }
+
+        async function loadPresets() {
+            const res = await fetch('/api/comfy/generate-presets');
+            const data = await res.json();
+            if (!res.ok || !data.ok) throw new Error(data.error || '加载预设失败');
+            state.presets = data.presets || [];
+            state.activePresetId = data.activePresetId || '';
+            state.defaults = data.defaults || null;
+            renderPresetList();
+            applyPresetToForm(activePreset() || state.defaults);
+            if (isKrea2Preset(activePreset())) {
+                setPromptMode('manual');
+            } else {
+                syncModeUi();
+            }
+        }
+
+        async function loadOptions() {
+            const [wf, up] = await Promise.all([
+                fetch('/api/comfy/workflow-options').then((r) => r.json()).catch(() => ({})),
+                fetch('/api/comfy/upscale-models').then((r) => r.json()).catch(() => ({ models: [] }))
+            ]);
+            state.options = {
+                checkpoints: wf.checkpoints || [],
+                loras: wf.loras || [],
+                defaults: wf.defaults || {},
+                upscaleModels: up.models || []
+            };
+            applyPresetToForm(activePreset() || state.defaults);
+        }
+
+        async function pingComfy() {
+            try {
+                const res = await fetch('/api/comfy/health');
+                const data = await res.json();
+                if (data.ok) {
+                    els.comfyStatus.textContent = 'Comfy ● 在线';
+                    els.comfyStatus.className = 'gen-status ok';
+                } else {
+                    els.comfyStatus.textContent = 'Comfy ○ 离线';
+                    els.comfyStatus.className = 'gen-status bad';
+                }
+            } catch (_) {
+                els.comfyStatus.textContent = 'Comfy ○ 离线';
+                els.comfyStatus.className = 'gen-status bad';
+            }
+        }
+
+        function initFramePresets() {
+            const keys = Object.keys(StickerFrame.PRESETS || {});
+            els.framePresetSelect.innerHTML = keys.map((k) => {
+                const label = StickerFrame.PRESETS[k].label || k;
+                return `<option value="${escapeAttr(k)}">${escapeHtml(label)}</option>`;
+            }).join('');
+            if (keys.includes('paper-collage')) els.framePresetSelect.value = 'paper-collage';
+            state.framePreset = els.framePresetSelect.value;
+        }
+
+        function loadImage(url) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => resolve(img);
+                img.onerror = () => reject(new Error('图片加载失败'));
+                img.src = url;
+            });
+        }
+
+        /** 预览先降采样，避免连画多张 2K/3K 图时 canvas 玻璃模糊把后面的图画黑 */
+        function downscaleForPreview(image, maxW) {
+            const imgW = image.naturalWidth || image.width || 0;
+            const imgH = image.naturalHeight || image.height || 0;
+            if (!maxW || !imgW || imgW <= maxW) return image;
+            const scale = maxW / imgW;
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(imgW * scale));
+            canvas.height = Math.max(1, Math.round(imgH * scale));
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+            return canvas;
+        }
+
+        function clearFramePreviewCache() {
+            state.framePreviewCache.clear();
+        }
+
+        function cloneCanvas(source) {
+            const canvas = document.createElement('canvas');
+            canvas.width = source.width;
+            canvas.height = source.height;
+            canvas.getContext('2d').drawImage(source, 0, 0);
+            return canvas;
+        }
+
+        function frameCacheKey(url, previewCap) {
+            return `${state.framePreset}|${previewCap}|${url}`;
+        }
+
+        function invalidateFrameCache(url) {
+            const prefix = `${state.framePreset}|`;
+            for (const key of [...state.framePreviewCache.keys()]) {
+                if (!key.startsWith(prefix)) continue;
+                if (!url || key.endsWith(`|${url}`)) {
+                    state.framePreviewCache.delete(key);
+                }
+            }
+        }
+
+        function isFramedCanvasCorrupt(canvas) {
+            if (!canvas || !canvas.width || !canvas.height) return true;
+            try {
+                const ctx = canvas.getContext('2d');
+                const w = canvas.width;
+                const h = canvas.height;
+                // 重点检查下半区：黑边故障常见为上半正常、下半全黑
+                const samples = [
+                    [0.2, 0.12, 0.6, 0.35],
+                    [0.2, 0.55, 0.6, 0.35]
+                ];
+                for (const [rx, ry, rw, rh] of samples) {
+                    const x0 = Math.floor(w * rx);
+                    const y0 = Math.floor(h * ry);
+                    const sw = Math.max(1, Math.floor(w * rw));
+                    const sh = Math.max(1, Math.floor(h * rh));
+                    const data = ctx.getImageData(x0, y0, sw, sh).data;
+                    let dark = 0;
+                    let total = 0;
+                    for (let i = 0; i < data.length; i += 16) {
+                        const r = data[i];
+                        const g = data[i + 1];
+                        const b = data[i + 2];
+                        const a = data[i + 3];
+                        if (a < 12) continue;
+                        total += 1;
+                        if (r + g + b < 48) dark += 1;
+                    }
+                    if (total > 24 && dark / total > 0.82) return true;
+                }
+                return false;
+            } catch (_) {
+                return false;
+            }
+        }
+
+        function plainPreviewNode(url) {
+            const img = document.createElement('img');
+            img.src = url;
+            img.alt = '';
+            return img;
+        }
+
+        function enqueueFrameRender(task) {
+            const run = state.frameRenderChain.then(() => task(), () => task());
+            state.frameRenderChain = run.then(() => undefined, () => undefined);
+            return run;
+        }
+
+        async function renderFramedCanvas(url, caption, previewMaxWidth, options = {}) {
+            return enqueueFrameRender(async () => {
+                const img = await loadImage(url);
+                if (options.fullRes) {
+                    if (typeof StickerFrame.renderStickerFrameSafe === 'function') {
+                        const safe = StickerFrame.renderStickerFrameSafe(img, {
+                            preset: state.framePreset,
+                            caption: caption || '',
+                            previewMaxWidth: 0
+                        });
+                        if (safe.reason === 'still_corrupt') {
+                            throw new Error('边框渲染异常（下半发黑）');
+                        }
+                        return safe.canvas;
+                    }
+                    return StickerFrame.renderStickerFrame(img, {
+                        preset: state.framePreset,
+                        caption: caption || '',
+                        previewMaxWidth: 0
+                    });
+                }
+                let maxW = previewMaxWidth;
+                if (maxW === undefined) {
+                    maxW = state.viewMode === 'grid' ? 420 : 720;
+                }
+                const previewCap = maxW > 0 ? maxW : 720;
+                const cacheKey = frameCacheKey(url, previewCap);
+                if (!options.skipCache && state.framePreviewCache.has(cacheKey)) {
+                    const cached = cloneCanvas(state.framePreviewCache.get(cacheKey));
+                    if (!isFramedCanvasCorrupt(cached)) return cached;
+                    state.framePreviewCache.delete(cacheKey);
+                }
+
+                async function drawOnce(cap) {
+                    const source = downscaleForPreview(img, cap);
+                    // 让出一帧，减轻连续 blur 压力
+                    await new Promise((r) => requestAnimationFrame(r));
+                    return StickerFrame.renderStickerFrame(source, {
+                        preset: state.framePreset,
+                        caption: caption || '',
+                        previewMaxWidth: cap
+                    });
+                }
+
+                let canvas = await drawOnce(previewCap);
+                if (isFramedCanvasCorrupt(canvas)) {
+                    await new Promise((r) => setTimeout(r, 40));
+                    canvas = await drawOnce(Math.min(previewCap, 360));
+                }
+                if (isFramedCanvasCorrupt(canvas)) {
+                    return plainPreviewNode(url);
+                }
+                if (!options.skipCache) {
+                    state.framePreviewCache.set(cacheKey, canvas);
+                    while (state.framePreviewCache.size > 24) {
+                        const oldest = state.framePreviewCache.keys().next().value;
+                        state.framePreviewCache.delete(oldest);
+                    }
+                }
+                return cloneCanvas(canvas);
+            });
+        }
+
+        async function replaceImageAt(index, url, { openLightboxAfter = false } = {}) {
+            if (!state.images[index] || !url) return;
+            const oldUrl = state.images[index].url;
+            invalidateFrameCache(oldUrl);
+            state.images[index] = {
+                ...state.images[index],
+                url,
+                selected: state.images[index].selected !== false
+            };
+            saveSession({ images: state.images, status: 'done' });
+            setProgress(`已替换第 ${index + 1} 张`);
+            await refreshResults();
+            if (openLightboxAfter || (els.lightbox.classList.contains('open') && state.lightboxIndex === index)) {
+                await paintLightbox();
+            }
+        }
+
+        function closeImportModal() {
+            const modal = $('importModal');
+            if (!modal) return;
+            modal.classList.remove('open');
+            modal.setAttribute('aria-hidden', 'true');
+            state.importTargetIndex = -1;
+        }
+
+        async function loadOutputImageList() {
+            const grid = $('importModalGrid');
+            const pathEl = $('importOutputPath');
+            if (grid) grid.innerHTML = '<div class="import-empty">加载 output 列表…</div>';
+            try {
+                const res = await fetch('/api/comfy/output-images?limit=48');
+                const data = await res.json();
+                if (pathEl) pathEl.textContent = data.outputDir || '（未找到 ComfyUI output，可设环境变量 COMFYUI_OUTPUT_DIR）';
+                if (!grid) return;
+                if (!data.ok || !Array.isArray(data.images) || !data.images.length) {
+                    grid.innerHTML = '<div class="import-empty">output 里暂无近期图片。可点「打开文件夹」手动查看，或「本机选图」。</div>';
+                    return;
+                }
+                grid.innerHTML = '';
+                data.images.forEach((img) => {
+                    const card = document.createElement('button');
+                    card.type = 'button';
+                    card.className = 'import-thumb';
+                    card.title = img.name;
+                    const thumb = document.createElement('img');
+                    thumb.src = img.previewUrl;
+                    thumb.alt = img.name;
+                    thumb.loading = 'lazy';
+                    const label = document.createElement('span');
+                    label.textContent = img.name;
+                    card.appendChild(thumb);
+                    card.appendChild(label);
+                    card.addEventListener('click', () => importFromOutputName(img.name));
+                    grid.appendChild(card);
+                });
+            } catch (e) {
+                if (pathEl) pathEl.textContent = '读取 output 失败';
+                if (grid) grid.innerHTML = `<div class="import-empty">加载失败：${escapeHtml(e.message || String(e))}</div>`;
+            }
+        }
+
+        async function openImportModal(index, { openExplorer = false } = {}) {
+            if (index < 0) {
+                // 无现有结果时，导入会新增一张
+                index = 0;
+            }
+            state.importTargetIndex = index;
+            const modal = $('importModal');
+            if (!modal) return;
+            modal.classList.add('open');
+            modal.setAttribute('aria-hidden', 'false');
+            const hint = $('importModalHint');
+            if (hint) {
+                hint.textContent = state.images[index]
+                    ? `将替换第 ${index + 1} 张。点下方缩略图导入，或「本机选图」。需要时再点「打开文件夹」。`
+                    : '当前还没有结果图：导入后会作为第 1 张加入。';
+            }
+            await loadOutputImageList();
+            if (openExplorer) {
+                try {
+                    await fetch('/api/comfy/open-output-folder', { method: 'POST' });
+                } catch (_) {}
+            }
+        }
+
+        async function importFromOutputName(filename) {
+            const index = state.importTargetIndex;
+            setProgress(`导入 ${filename}…`);
+            try {
+                const res = await fetch('/api/comfy/import-image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ source: 'output', filename })
+                });
+                const data = await res.json();
+                if (!res.ok || !data.ok) throw new Error(data.error || '导入失败');
+                if (state.images[index]) {
+                    await replaceImageAt(index, data.url, {
+                        openLightboxAfter: els.lightbox.classList.contains('open')
+                    });
+                } else {
+                    state.images = [{ url: data.url, prompt: '', selected: true }];
+                    state.singleIndex = 0;
+                    saveSession({ images: state.images, status: 'done' });
+                    setProgress('已导入 1 张');
+                    await refreshResults();
+                }
+                closeImportModal();
+            } catch (e) {
+                alert('导入失败：' + e.message);
+                setProgress('');
+            }
+        }
+
+        function readFileAsDataUrl(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(new Error('读取文件失败'));
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function importFromLocalFile(file) {
+            if (!file) return;
+            const index = state.importTargetIndex;
+            setProgress(`导入 ${file.name}…`);
+            try {
+                const dataUrl = await readFileAsDataUrl(file);
+                const res = await fetch('/api/comfy/import-image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data: dataUrl, name: file.name })
+                });
+                const data = await res.json();
+                if (!res.ok || !data.ok) throw new Error(data.error || '导入失败');
+                if (state.images[index]) {
+                    await replaceImageAt(index, data.url, {
+                        openLightboxAfter: els.lightbox.classList.contains('open')
+                    });
+                } else {
+                    state.images = [{ url: data.url, prompt: '', selected: true }];
+                    state.singleIndex = 0;
+                    saveSession({ images: state.images, status: 'done' });
+                    setProgress('已导入 1 张');
+                    await refreshResults();
+                }
+                closeImportModal();
+            } catch (e) {
+                alert('导入失败：' + e.message);
+                setProgress('');
+            }
+        }
+
+        function prefetchLightboxNeighbors(centerIndex) {
+            const indexes = [centerIndex - 1, centerIndex + 1, centerIndex + 2]
+                .filter((i) => i >= 0 && i < state.images.length);
+            indexes.forEach((i) => {
+                const url = state.images[i] && state.images[i].url;
+                if (!url) return;
+                renderFramedCanvas(url, '', 720).catch(() => {});
+            });
+        }
+
+        async function refreshResults() {
+            const n = state.images.length;
+            if (!state.generating) {
+                els.resultMeta.textContent = n ? `${n} 张 · 点击图片可放大` : '0 张 · 点击图片可放大';
+            } else if (els.progressText && els.progressText.textContent) {
+                els.resultMeta.textContent = els.progressText.textContent;
+            }
+            // 空状态提示放进主画布，不再用绝对定位遮罩（会把初始化布局挤扁）
+            if (els.resultsEmpty) els.resultsEmpty.hidden = true;
+            syncViewChrome();
+
+            if (state.viewMode === 'grid') {
+                els.resultsGrid.classList.remove('hidden');
+                els.singleView.classList.remove('active');
+                els.resultsGrid.innerHTML = '';
+                if (!n) {
+                    const empty = document.createElement('div');
+                    empty.className = 'results-grid-empty';
+                    empty.innerHTML = '选好预设后，在左下角输入场景并生成。<br>也可切到「单图」查看大图布局。';
+                    els.resultsGrid.appendChild(empty);
+                    return;
+                }
+                const renderToken = (state.resultsRenderToken = (state.resultsRenderToken || 0) + 1);
+                for (let i = 0; i < state.images.length; i++) {
+                    if (renderToken !== state.resultsRenderToken) return;
+                    const item = state.images[i];
+                    const card = document.createElement('div');
+                    card.className = 'result-card';
+                    const thumb = document.createElement('div');
+                    thumb.className = 'thumb';
+                    try {
+                        const canvas = await renderFramedCanvas(item.url, '');
+                        if (renderToken !== state.resultsRenderToken) return;
+                        thumb.appendChild(canvas);
+                    } catch (_) {
+                        const img = document.createElement('img');
+                        img.src = item.url;
+                        thumb.appendChild(img);
+                    }
+                    thumb.addEventListener('click', () => openLightbox(i));
+                    const meta = document.createElement('div');
+                    meta.className = 'meta';
+                    meta.innerHTML = `
+                        <label><input type="checkbox" ${item.selected ? 'checked' : ''} data-i="${i}"> ${String(i + 1).padStart(3, '0')}</label>
+                        <button type="button" class="btn-rerender" data-rerender="${i}" title="从 output / 本机换图">换图</button>
+                    `;
+                    meta.querySelector('input').addEventListener('change', (e) => {
+                        state.images[i].selected = e.target.checked;
+                        syncExportButtons();
+                    });
+                    meta.querySelector('[data-rerender]').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        openImportModal(i);
+                    });
+                    card.appendChild(thumb);
+                    card.appendChild(meta);
+                    if (item.prompt) card.appendChild(buildPromptMeta(item, i));
+                    els.resultsGrid.appendChild(card);
+                    // 让出一帧，减轻连续玻璃模糊对 GPU 的压力
+                    await new Promise((r) => requestAnimationFrame(r));
+                }
+            } else {
+                els.resultsGrid.classList.add('hidden');
+                els.singleView.classList.add('active');
+                state.singleIndex = Math.max(0, Math.min(state.singleIndex, Math.max(0, n - 1)));
+                els.singleIndexLabel.textContent = n ? `${state.singleIndex + 1} / ${n}` : '0 / 0';
+                if (!n) {
+                    els.singleStage.innerHTML = '<div class="stage-placeholder">选好预设后，在左下角输入场景并生成。<br>出图后默认带边框预览，点击可放大。</div>';
+                    return;
+                }
+                const item = state.images[state.singleIndex];
+                let node;
+                try {
+                    node = await renderFramedCanvas(item.url, '');
+                } catch (_) {
+                    node = document.createElement('img');
+                    node.src = item.url;
+                }
+                els.singleStage.replaceChildren(node);
+            }
+        }
+
+        async function paintLightbox() {
+            const paintToken = ++state.lightboxPaintToken;
+            const index = state.lightboxIndex;
+            const n = state.images.length;
+            els.lightboxIndexLabel.textContent = n ? `${index + 1} / ${n}` : '0 / 0';
+            syncLightboxPromptBox();
+            if (!n) {
+                els.lightboxStage.innerHTML = '';
+                return;
+            }
+            const item = state.images[index];
+            let node;
+            try {
+                node = await renderFramedCanvas(item.url, '', 720);
+            } catch (_) {
+                node = document.createElement('img');
+                node.src = item.url;
+            }
+            // 画好再替换，避免先清空导致白闪；过期请求直接丢弃
+            if (paintToken !== state.lightboxPaintToken || state.lightboxIndex !== index) return;
+            els.lightboxStage.replaceChildren(node);
+            prefetchLightboxNeighbors(index);
+        }
+
+        function openLightbox(index) {
+            if (!state.images.length) return;
+            state.lightboxIndex = Math.max(0, Math.min(index, state.images.length - 1));
+            els.lightbox.classList.add('open');
+            els.lightbox.setAttribute('aria-hidden', 'false');
+            paintLightbox();
+        }
+
+        function closeLightbox() {
+            state.lightboxPaintToken += 1;
+            els.lightbox.classList.remove('open');
+            els.lightbox.setAttribute('aria-hidden', 'true');
+            els.lightboxStage.innerHTML = '';
+        }
+
+        function syncViewToggle() {
+            els.btnViewGrid.classList.toggle('active', state.viewMode === 'grid');
+            els.btnViewSingle.classList.toggle('active', state.viewMode === 'single');
+        }
+
+        function setConfigOpen(open) {
+            els.layout.classList.toggle('config-open', open);
+            els.btnToggleConfig.textContent = open ? '收起配置' : '展开配置';
+        }
+
+        function setPresetsCollapsed(collapsed) {
+            els.layout.classList.toggle('presets-collapsed', collapsed);
+            els.btnTogglePresets.textContent = collapsed ? '展开预设' : '收起预设';
+        }
+
+        function setComposerOpen(_open) {
+            if (els.composerDock) els.composerDock.classList.add('open');
+        }
+
+        async function readSseGenerate(res) {
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let finalPayload = null;
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const chunks = buffer.split('\n\n');
+                buffer = chunks.pop() || '';
+                for (const chunk of chunks) {
+                    const line = chunk.split('\n').find((l) => l.startsWith('data: '));
+                    if (!line) continue;
+                    let payload;
+                    try {
+                        payload = JSON.parse(line.slice(6));
+                    } catch (_) {
+                        continue;
+                    }
+                    if (payload.jobId) {
+                        state.jobId = payload.jobId;
+                        saveSession({
+                            status: 'running',
+                            jobId: payload.jobId,
+                            progressText: payload.message || els.progressText.textContent
+                        });
+                    }
+                    if (payload.message) {
+                        setProgress(payload.message);
+                    } else if (payload.phase === 'expanding') {
+                        setProgress('AI 扩写中…');
+                    } else if (payload.phase === 'generating' || payload.phase === 'queued' || payload.phase === 'job') {
+                        setProgress(payload.message || 'Comfy 生成中…');
+                    }
+                    if (payload.message || payload.phase) {
+                        saveSession({
+                            status: 'running',
+                            jobId: state.jobId,
+                            progressText: els.progressText.textContent
+                        });
+                    }
+                    if (payload.phase === 'done' && payload.ok !== false && payload.images) {
+                        finalPayload = payload;
+                    }
+                    if (payload.phase === 'error') {
+                        const err = new Error(payload.error || '生成失败');
+                        err.jobId = payload.jobId || state.jobId;
+                        throw err;
+                    }
+                }
+            }
+            if (!finalPayload) {
+                const err = new Error(state.jobId ? '__RESUME__' : '生成结束但未收到结果');
+                err.resume = Boolean(state.jobId);
+                throw err;
+            }
+            return finalPayload;
+        }
+
+        async function onGenerate() {
+            if (state.generating) return;
+            const preset = activePreset();
+            if (!preset) {
+                alert('请先新建并选择一个角色预设');
+                setConfigOpen(true);
+                return;
+            }
+            const scene = els.sceneInput.value.trim();
+            const mode = currentMode();
+            if (!scene) {
+                setComposerOpen(true);
+                alert(mode === 'ai' ? '请填写场景描述' : '请粘贴手动 Prompt');
+                return;
+            }
+
+            stopJobPoll();
+            setGenerating(true);
+            state.jobId = '';
+            setProgress(mode === 'ai' ? 'AI 扩写中…' : '提交 Comfy…');
+            saveSession({
+                status: 'running',
+                jobId: '',
+                scene,
+                mode,
+                count: Number(els.countInput.value) || 1,
+                activePresetId: preset.id,
+                progressText: els.progressText.textContent
+            });
+
+            try {
+                const res = await fetch('/api/comfy/generate?stream=1', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'text/event-stream'
+                    },
+                    body: JSON.stringify({
+                        presetId: preset.id,
+                        mode,
+                        scene,
+                        count: Number(els.countInput.value) || 1,
+                        stream: true,
+                        // 右侧表单当前勾选即时生效（不必先点保存预设）
+                        overrides: {
+                            enableUpscale: $('cfgEnableUpscale') ? $('cfgEnableUpscale').checked : false,
+                            upscaleModel: $('cfgUpscaleModel') ? $('cfgUpscaleModel').value : '',
+                            width: Number($('cfgWidth').value) || undefined,
+                            height: Number($('cfgHeight').value) || undefined,
+                            steps: Number($('cfgSteps').value) || undefined,
+                            cfg: Number($('cfgCfg').value) || undefined,
+                            sampler: $('cfgSampler').value || undefined,
+                            scheduler: $('cfgScheduler').value || undefined,
+                            negativePrompt: $('cfgNegative').value,
+                            checkpointName: $('cfgCheckpoint').value || undefined,
+                            basePrompt: $('cfgBasePrompt').value
+                        }
+                    })
+                });
+
+                if (!res.ok) {
+                    let errMsg = '生成失败';
+                    try {
+                        const errData = await res.json();
+                        errMsg = errData.error || errMsg;
+                        if (errData.jobId) state.jobId = errData.jobId;
+                    } catch (_) {}
+                    throw new Error(errMsg);
+                }
+
+                const contentType = res.headers.get('content-type') || '';
+                let data;
+                if (contentType.includes('text/event-stream') && res.body) {
+                    data = await readSseGenerate(res);
+                } else {
+                    data = await res.json();
+                    if (!data.ok) throw new Error(data.error || '生成失败');
+                }
+
+                if (data.jobId) state.jobId = data.jobId;
+                clearFramePreviewCache();
+                state.images = (data.images || []).map((img) => ({
+                    url: img.url,
+                    prompt: img.prompt || '',
+                    selected: true
+                }));
+                state.singleIndex = 0;
+                const sec = Math.round((data.elapsedMs || 0) / 1000);
+                setProgress(`完成 ${state.images.length} 张 · ${sec}s` +
+                    (data.source ? ` · ${data.source}` : ''));
+                saveSession({
+                    status: 'done',
+                    jobId: state.jobId,
+                    images: state.images,
+                    batchId: data.batchId || '',
+                    progressText: els.progressText.textContent
+                });
+                await refreshResults();
+            } catch (e) {
+                if (e.resume || e.message === '__RESUME__' || (state.jobId && /network|fetch|abort/i.test(String(e.message || e.name || '')))) {
+                    setProgress('连接中断，正在跟踪后台任务…');
+                    saveSession({ status: 'running', jobId: state.jobId, progressText: els.progressText.textContent });
+                    startJobPoll(state.jobId);
+                    return;
+                }
+                setProgress('');
+                saveSession({
+                    status: 'error',
+                    jobId: state.jobId || e.jobId || '',
+                    progressText: '',
+                    error: e.message
+                });
+                alert('生成失败：' + e.message);
+                setGenerating(false);
+            } finally {
+                if (!state.pollTimer) {
+                    setGenerating(false);
+                }
+            }
+        }
+
+        async function savePreset() {
+            const body = readConfigForm();
+            const res = await fetch('/api/comfy/generate-presets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+                alert(data.error || '保存失败');
+                return;
+            }
+            state.presets = data.presets || [];
+            state.activePresetId = data.preset?.id || data.activePresetId || state.activePresetId;
+            renderPresetList();
+            applyPresetToForm(activePreset());
+            alert('预设已保存');
+        }
+
+        async function deletePreset() {
+            if (!state.activePresetId) return;
+            if (!confirm('删除当前预设？')) return;
+            const res = await fetch(`/api/comfy/generate-presets/${encodeURIComponent(state.activePresetId)}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+                alert(data.error || '删除失败');
+                return;
+            }
+            state.presets = data.presets || [];
+            state.activePresetId = data.activePresetId || '';
+            renderPresetList();
+            applyPresetToForm(activePreset() || state.defaults);
+        }
+
+        async function newPreset() {
+            setConfigOpen(true);
+            state.activePresetId = '';
+            applyPresetToForm({
+                ...(state.defaults || {}),
+                name: '新预设',
+                basePrompt: '',
+                enableUpscale: true,
+                enableHires: false
+            });
+            $('cfgName').focus();
+        }
+
+        async function pickFolder() {
+            if ('showDirectoryPicker' in window) {
+                try {
+                    state.exportDirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+                    // 浏览器安全限制拿不到完整磁盘路径，只能显示文件夹名；授权句柄会存 IndexedDB
+                    els.exportFolderPath.value = state.exportDirHandle.name;
+                    await saveExportDirHandle(state.exportDirHandle);
+                    saveSession({ exportFolderPath: els.exportFolderPath.value });
+                    setExportFolderHint(`已授权浏览器直写「${state.exportDirHandle.name}」。也可改粘贴完整路径 D:\\… 走服务端写入。`);
+                    return;
+                } catch (e) {
+                    if (e.name !== 'AbortError') alert('选择文件夹失败: ' + e.message);
+                    return;
+                }
+            }
+            els.exportFolderPath.focus();
+            alert('当前浏览器不支持直接选文件夹，请粘贴完整路径（如 D:\\素材\\导出）');
+        }
+
+        async function saveBlob(dirHandle, name, blob) {
+            const fh = await dirHandle.getFileHandle(name, { create: true });
+            const w = await fh.createWritable();
+            await w.write(blob);
+            await w.close();
+        }
+
+        async function nextNumberedPngSeqFromHandle(dirHandle) {
+            let max = 0;
+            for await (const [name, handle] of dirHandle.entries()) {
+                if (handle.kind !== 'file') continue;
+                const m = /^(\d+)\.png$/i.exec(name);
+                if (m) max = Math.max(max, parseInt(m[1], 10));
+            }
+            return max + 1;
+        }
+
+        async function nextNumberedPngSeqFromPath(folderPath) {
+            const res = await fetch(`/api/export-next-seq?folderPath=${encodeURIComponent(folderPath)}`);
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.ok) throw new Error(data.error || '无法读取导出序号');
+            return Number(data.nextSeq) || 1;
+        }
+
+        function formatNumberedPngName(seq) {
+            return `${String(seq).padStart(3, '0')}.png`;
+        }
+
+        async function exportSelected() {
+            const selected = state.images
+                .map((img, i) => ({ ...img, i }))
+                .filter((x) => x.selected);
+            if (!selected.length) {
+                alert('请至少勾选一张图');
+                return;
+            }
+
+            let dirHandle = await ensureExportDirPermission(state.exportDirHandle);
+            if (!dirHandle) {
+                dirHandle = await ensureExportDirPermission(await loadExportDirHandle());
+                state.exportDirHandle = dirHandle;
+            }
+            const folderPath = els.exportFolderPath.value.trim();
+
+            if (!dirHandle && !isAbsoluteExportPath(folderPath)) {
+                alert(
+                    '导出文件夹无效。\n\n' +
+                    '点「选择」会用浏览器授权写入（刷新后会尝试自动恢复）。\n' +
+                    '或粘贴完整路径，例如：D:\\素材\\1_sex\n\n' +
+                    '以前只保存了文件夹名时，文件可能被写到项目目录下的同名文件夹里。'
+                );
+                setConfigOpen(true);
+                setExportFolderHint('请重新「选择」文件夹，或粘贴完整绝对路径', true);
+                return;
+            }
+
+            const withFrame = els.exportWithFrame.checked;
+            if (els.btnExportSelected) els.btnExportSelected.disabled = true;
+            if (els.btnExportCurrent) els.btnExportCurrent.disabled = true;
+            setProgress('导出中…');
+
+            try {
+                let seq = dirHandle
+                    ? await nextNumberedPngSeqFromHandle(dirHandle)
+                    : await nextNumberedPngSeqFromPath(folderPath);
+                let done = 0;
+                let lastSavedTo = dirHandle
+                    ? `浏览器授权文件夹「${dirHandle.name}」`
+                    : folderPath;
+                for (const item of selected) {
+                    done += 1;
+                    setProgress(`导出 ${done}/${selected.length}…`);
+                    let blob;
+                    if (withFrame) {
+                        const canvas = await renderFramedCanvas(item.url, '', undefined, { fullRes: true });
+                        blob = await StickerFrame.canvasToBlob(canvas);
+                    } else {
+                        const imgRes = await fetch(item.url);
+                        blob = await imgRes.blob();
+                    }
+                    const name = formatNumberedPngName(seq);
+                    seq += 1;
+                    if (dirHandle) {
+                        await saveBlob(dirHandle, name, blob);
+                    } else {
+                        const data = await StickerFrame.blobToBase64(blob);
+                        const res = await fetch('/api/export-image', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ folderPath, name, data })
+                        });
+                        const out = await res.json();
+                        if (!res.ok || !out.ok) throw new Error(out.error || '导出失败');
+                        if (out.folderPath) lastSavedTo = out.folderPath;
+                    }
+                }
+                setProgress(`已导出 ${selected.length} 张 → ${lastSavedTo}`);
+                alert(`已导出 ${selected.length} 张\n位置：${lastSavedTo}`);
+            } catch (e) {
+                alert('导出失败：' + e.message);
+                setProgress('');
+            } finally {
+                syncExportButtons();
+            }
+        }
+
+        async function exportImages(items) {
+            if (!items.length) {
+                alert('没有可导出的图');
+                return;
+            }
+            const prev = state.images.map((img) => img.selected);
+            state.images.forEach((img, i) => {
+                img.selected = items.some((it) => it.i === i || it.url === img.url);
+            });
+            try {
+                await exportSelected();
+            } finally {
+                state.images.forEach((img, i) => { img.selected = prev[i]; });
+                syncExportButtons();
+            }
+        }
+
+        async function exportCurrentImage() {
+            if (!state.images.length) return;
+            const idx = els.lightbox.classList.contains('open') ? state.lightboxIndex : state.singleIndex;
+            const item = state.images[idx];
+            if (!item) return;
+            await exportImages([{ ...item, i: idx }]);
+        }
+
+        function bind() {
+            document.querySelectorAll('input[name="promptMode"]').forEach((el) => {
+                el.addEventListener('change', () => {
+                    syncModeUi();
+                    saveSession({ mode: currentMode() });
+                });
+            });
+            $('btnCountMinus').addEventListener('click', () => {
+                els.countInput.value = Math.max(1, Number(els.countInput.value) - 1);
+                saveSession({ count: Number(els.countInput.value) || 1 });
+            });
+            $('btnCountPlus').addEventListener('click', () => {
+                els.countInput.value = Math.min(30, Number(els.countInput.value) + 1);
+                saveSession({ count: Number(els.countInput.value) || 1 });
+            });
+            els.btnGenerate.addEventListener('click', onGenerate);
+            const btnCancelGenerate = $('btnCancelGenerate');
+            if (btnCancelGenerate) {
+                btnCancelGenerate.addEventListener('click', () => cancelCurrentGenerate());
+            }
+            $('btnNewPreset').addEventListener('click', newPreset);
+            $('btnSavePreset').addEventListener('click', savePreset);
+            $('btnDeletePreset').addEventListener('click', deletePreset);
+            els.btnToggleConfig.addEventListener('click', () => {
+                setConfigOpen(!els.layout.classList.contains('config-open'));
+            });
+            $('btnCloseConfig').addEventListener('click', () => setConfigOpen(false));
+            els.btnTogglePresets.addEventListener('click', () => {
+                setPresetsCollapsed(!els.layout.classList.contains('presets-collapsed'));
+            });
+            $('cfgEnableHires').addEventListener('change', () => {
+                $('hiresRow').hidden = !$('cfgEnableHires').checked;
+            });
+            $('cfgEnableUpscale').addEventListener('change', () => {
+                const label = $('cfgUpscaleModelLabel');
+                if (label) label.hidden = !$('cfgEnableUpscale').checked;
+            });
+            els.btnViewGrid.addEventListener('click', () => {
+                state.viewMode = 'grid';
+                syncViewChrome();
+                saveSession({ viewMode: 'grid' });
+                refreshResults();
+            });
+            els.btnViewSingle.addEventListener('click', () => {
+                state.viewMode = 'single';
+                syncViewChrome();
+                saveSession({ viewMode: 'single' });
+                refreshResults();
+            });
+            const btnGridSelectAll = $('btnGridSelectAll');
+            if (btnGridSelectAll) {
+                btnGridSelectAll.addEventListener('click', () => {
+                    state.images.forEach((img) => { img.selected = true; });
+                    els.resultsGrid.querySelectorAll('input[type="checkbox"][data-i]').forEach((el) => {
+                        el.checked = true;
+                    });
+                    syncExportButtons();
+                    saveSession({ images: state.images });
+                });
+            }
+            const btnGridSelectNone = $('btnGridSelectNone');
+            if (btnGridSelectNone) {
+                btnGridSelectNone.addEventListener('click', () => {
+                    state.images.forEach((img) => { img.selected = false; });
+                    els.resultsGrid.querySelectorAll('input[type="checkbox"][data-i]').forEach((el) => {
+                        el.checked = false;
+                    });
+                    syncExportButtons();
+                    saveSession({ images: state.images });
+                });
+            }
+            const btnGridExportSelected = $('btnGridExportSelected');
+            if (btnGridExportSelected) {
+                btnGridExportSelected.addEventListener('click', () => exportSelected());
+            }
+            $('btnPrev').addEventListener('click', () => {
+                if (state.singleIndex > 0) {
+                    state.singleIndex -= 1;
+                    refreshResults();
+                }
+            });
+            $('btnNext').addEventListener('click', () => {
+                if (state.singleIndex < state.images.length - 1) {
+                    state.singleIndex += 1;
+                    refreshResults();
+                }
+            });
+            els.singleStage.addEventListener('click', () => openLightbox(state.singleIndex));
+            $('btnOpenLightbox').addEventListener('click', () => openLightbox(state.singleIndex));
+            $('btnRerenderSingle').addEventListener('click', () => {
+                openImportModal(state.images.length ? state.singleIndex : -1);
+            });
+            if (els.btnExportCurrent) {
+                els.btnExportCurrent.addEventListener('click', () => exportCurrentImage());
+            }
+            if (els.btnExportSelected) {
+                els.btnExportSelected.addEventListener('click', () => exportSelected());
+            }
+            if (els.btnExportLightbox) {
+                els.btnExportLightbox.addEventListener('click', () => exportCurrentImage());
+            }
+            $('btnLightboxClose').addEventListener('click', closeLightbox);
+            els.lightbox.addEventListener('click', (e) => {
+                if (e.target === els.lightbox) closeLightbox();
+            });
+            $('btnLightboxPrev').addEventListener('click', () => {
+                if (state.lightboxIndex > 0) {
+                    state.lightboxIndex -= 1;
+                    paintLightbox();
+                }
+            });
+            $('btnLightboxNext').addEventListener('click', () => {
+                if (state.lightboxIndex < state.images.length - 1) {
+                    state.lightboxIndex += 1;
+                    paintLightbox();
+                }
+            });
+            $('btnRerenderLightbox').addEventListener('click', () => {
+                openImportModal(state.images.length ? state.lightboxIndex : -1);
+            });
+            const importModal = $('importModal');
+            if (importModal) {
+                importModal.addEventListener('click', (e) => {
+                    if (e.target === importModal) closeImportModal();
+                });
+            }
+            const btnImportClose = $('btnImportModalClose');
+            if (btnImportClose) btnImportClose.addEventListener('click', closeImportModal);
+            const btnOpenOutput = $('btnOpenOutputFolder');
+            if (btnOpenOutput) {
+                btnOpenOutput.addEventListener('click', async () => {
+                    try {
+                        const res = await fetch('/api/comfy/open-output-folder', { method: 'POST' });
+                        const data = await res.json();
+                        if (!res.ok || !data.ok) alert(data.error || '无法打开文件夹');
+                    } catch (e) {
+                        alert('无法打开文件夹：' + e.message);
+                    }
+                });
+            }
+            const btnRefreshOutput = $('btnRefreshOutputList');
+            if (btnRefreshOutput) btnRefreshOutput.addEventListener('click', () => loadOutputImageList());
+            const btnPickLocal = $('btnPickLocalImage');
+            const importLocalFile = $('importLocalFile');
+            if (btnPickLocal && importLocalFile) {
+                btnPickLocal.addEventListener('click', () => importLocalFile.click());
+                importLocalFile.addEventListener('change', () => {
+                    const file = importLocalFile.files && importLocalFile.files[0];
+                    importLocalFile.value = '';
+                    if (file) importFromLocalFile(file);
+                });
+            }
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && $('importModal')?.classList.contains('open')) {
+                    closeImportModal();
+                    return;
+                }
+                if (!els.lightbox.classList.contains('open')) return;
+                if (e.key === 'Escape') closeLightbox();
+                if (e.key === 'ArrowLeft' && state.lightboxIndex > 0) {
+                    state.lightboxIndex -= 1;
+                    paintLightbox();
+                }
+                if (e.key === 'ArrowRight' && state.lightboxIndex < state.images.length - 1) {
+                    state.lightboxIndex += 1;
+                    paintLightbox();
+                }
+            });
+            els.framePresetSelect.addEventListener('change', () => {
+                state.framePreset = els.framePresetSelect.value;
+                clearFramePreviewCache();
+                saveSession({ framePreset: state.framePreset });
+                refreshResults();
+            });
+            $('btnPickFolder').addEventListener('click', pickFolder);
+            $('btnSaveAiPrompt').addEventListener('click', saveAiSettings);
+            $('btnResetAiPrompt').addEventListener('click', resetAiSettings);
+            const copySingle = $('btnCopySinglePrompt');
+            if (copySingle) {
+                copySingle.addEventListener('click', () => {
+                    const item = state.images[state.singleIndex];
+                    copyText(item && item.prompt);
+                });
+            }
+            const copyLb = $('btnCopyLightboxPrompt');
+            if (copyLb) {
+                copyLb.addEventListener('click', () => {
+                    const item = state.images[state.lightboxIndex];
+                    copyText(item && item.prompt);
+                });
+            }
+            els.exportFolderPath.addEventListener('input', () => {
+                state.exportDirHandle = null;
+                clearExportDirHandleStore();
+                const val = els.exportFolderPath.value.trim();
+                saveSession({ exportFolderPath: val });
+                if (!val) {
+                    setExportFolderHint('点「选择」用浏览器授权直写；刷新后会尽量恢复。也可粘贴完整绝对路径（D:\\…）。');
+                } else if (isAbsoluteExportPath(val)) {
+                    setExportFolderHint('将使用服务端按此绝对路径写入。');
+                } else {
+                    setExportFolderHint('这不是完整路径。请点「选择」授权，或改成 D:\\… 完整路径。', true);
+                }
+            });
+
+            wireBasePromptSync();
+
+            let draftTimer = null;
+            const persistDraft = () => {
+                clearTimeout(draftTimer);
+                draftTimer = setTimeout(() => {
+                    saveSession({
+                        scene: els.sceneInput.value,
+                        mode: currentMode(),
+                        count: Number(els.countInput.value) || 1
+                    });
+                }, 400);
+            };
+            els.sceneInput.addEventListener('input', persistDraft);
+            els.countInput.addEventListener('change', persistDraft);
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (typeof StickerFrame === 'undefined') {
+                alert('边框脚本加载失败，请强制刷新');
+                return;
+            }
+            bind();
+            syncModeUi();
+            syncViewChrome();
+            setConfigOpen(false);
+            setPresetsCollapsed(false);
+            setComposerOpen(true);
+            initFramePresets();
+            await pingComfy();
+            try {
+                await loadOptions();
+                await loadPresets();
+                await loadAiSettings();
+                await restoreSession();
+                await refreshResults();
+            } catch (e) {
+                console.error(e);
+                alert('初始化失败：' + e.message);
+            }
+            setInterval(pingComfy, 15000);
+        });
+    })();
+    </script>
+</body>
+</html>

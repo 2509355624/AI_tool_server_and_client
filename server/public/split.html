@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片切分 - 左右分屏</title>
+    <link rel="stylesheet" href="styles/split-paper.css?v=1">
+</head>
+<body>
+    <a href="index.html" class="back-home">
+        <span>🏠</span>
+        <span>返回主页</span>
+    </a>
+
+    <div class="split-app">
+        <header class="split-header">
+            <h1>✂️ 图片切分</h1>
+            <p>可先旋转 90°，再按当前画面左右切开。下载的是你现在看到的角度</p>
+        </header>
+
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📷</div>
+            <div class="upload-text">点击或拖拽上传图片</div>
+            <div class="upload-hint">支持 JPG、PNG、WebP · 竖图可点「旋转 90°」再切成横图</div>
+            <input type="file" id="fileInput" accept="image/*">
+        </div>
+
+        <div class="progress-bar" id="progressBar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+
+        <div class="result-message" id="resultMessage">
+            ✅ 切分完成！点击下方图片下载
+        </div>
+
+        <div class="preview-section" id="previewSection" style="display: none;">
+            <div class="preview-card">
+                <span class="tape" aria-hidden="true"></span>
+                <div class="preview-header">
+                    <span class="preview-title" id="originalTitle">原始图片</span>
+                    <div class="header-actions">
+                        <button type="button" class="rotate-btn" id="rotateHeaderBtn" onclick="rotateImage()" disabled>旋转 90°</button>
+                        <button type="button" class="download-btn" id="downloadOriginal" onclick="downloadOriginalImage()">下载 ↓</button>
+                    </div>
+                </div>
+                <div class="split-overlay">
+                    <img id="originalImage" class="preview-image" alt="原始图片">
+                    <div class="split-line"></div>
+                </div>
+                <div class="preview-info" id="originalInfo"></div>
+            </div>
+
+            <div class="preview-card">
+                <span class="tape" aria-hidden="true"></span>
+                <div class="preview-header">
+                    <span class="preview-title">左半部分</span>
+                    <button type="button" class="download-btn" id="downloadLeft" onclick="downloadImage('left')">下载 ↓</button>
+                </div>
+                <img id="leftImage" class="preview-image" alt="左半部分">
+                <div class="preview-info">适合作为视频左屏</div>
+            </div>
+
+            <div class="preview-card">
+                <span class="tape" aria-hidden="true"></span>
+                <div class="preview-header">
+                    <span class="preview-title">右半部分</span>
+                    <button type="button" class="download-btn" id="downloadRight" onclick="downloadImage('right')">下载 ↓</button>
+                </div>
+                <img id="rightImage" class="preview-image" alt="右半部分">
+                <div class="preview-info">适合作为视频右屏</div>
+            </div>
+        </div>
+
+        <div class="actions">
+            <button type="button" class="btn-secondary" id="rotateBtn" onclick="rotateImage()" disabled>
+                <span>↻</span>
+                <span>旋转 90°</span>
+            </button>
+            <button type="button" class="btn-primary" id="splitBtn" onclick="splitImage()" disabled>
+                <span>✂️</span>
+                <span>开始切分</span>
+            </button>
+            <button type="button" class="btn-secondary" onclick="resetAll()">重新上传</button>
+        </div>
+    </div>
+
+    <script>
+        let originalFile = null;
+        let sourceImageData = null;
+        let currentImageData = null;
+        let leftImageData = null;
+        let rightImageData = null;
+        let originalFilename = '';
+        let rotationDeg = 0;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+
+            uploadArea.addEventListener('click', () => fileInput.click());
+
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
+
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleFile(files[0]);
+                }
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleFile(e.target.files[0]);
+                }
+            });
+        });
+
+        function handleFile(file) {
+            if (!file.type.startsWith('image/')) {
+                alert('请上传图片文件');
+                return;
+            }
+
+            originalFile = file;
+            originalFilename = file.name;
+            rotationDeg = 0;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                sourceImageData = e.target.result;
+                currentImageData = sourceImageData;
+                document.getElementById('originalImage').src = currentImageData;
+                updateOriginalInfo();
+            };
+            reader.readAsDataURL(file);
+
+            document.getElementById('previewSection').style.display = 'grid';
+            document.getElementById('splitBtn').disabled = false;
+            document.getElementById('rotateBtn').disabled = false;
+            document.getElementById('rotateHeaderBtn').disabled = false;
+            document.getElementById('resultMessage').style.display = 'none';
+            clearSplitResult();
+        }
+
+        function clearSplitResult() {
+            document.getElementById('leftImage').src = '';
+            document.getElementById('rightImage').src = '';
+            leftImageData = null;
+            rightImageData = null;
+            document.getElementById('resultMessage').style.display = 'none';
+        }
+
+        function updateOriginalInfo() {
+            if (!currentImageData || !originalFile) return;
+            const img = new Image();
+            img.onload = () => {
+                const angleText = rotationDeg === 0 ? '未旋转' : `已旋转 ${rotationDeg}°`;
+                document.getElementById('originalInfo').textContent =
+                    `尺寸: ${img.width} × ${img.height} | ${angleText} | 大小: ${formatFileSize(originalFile.size)}`;
+                document.getElementById('originalTitle').textContent =
+                    rotationDeg === 0 ? '原始图片' : `当前图片（${rotationDeg}°）`;
+            };
+            img.src = currentImageData;
+        }
+
+        function getExportMime() {
+            const type = originalFile && originalFile.type;
+            if (type === 'image/png' || type === 'image/webp') return type;
+            return 'image/jpeg';
+        }
+
+        function canvasToDataUrl(canvas) {
+            const mime = getExportMime();
+            if (mime === 'image/jpeg') return canvas.toDataURL('image/jpeg', 0.95);
+            return canvas.toDataURL(mime);
+        }
+
+        function loadImage(src) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => resolve(img);
+                img.onerror = () => reject(new Error('图片加载失败'));
+                img.src = src;
+            });
+        }
+
+        async function getRotatedFromSource(degrees) {
+            const img = await loadImage(sourceImageData);
+            if (degrees % 360 === 0) return sourceImageData;
+
+            const canvas = document.createElement('canvas');
+            const swap = degrees % 180 !== 0;
+            canvas.width = swap ? img.height : img.width;
+            canvas.height = swap ? img.width : img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate((degrees * Math.PI) / 180);
+            ctx.drawImage(img, -img.width / 2, -img.height / 2);
+            return canvasToDataUrl(canvas);
+        }
+
+        async function rotateImage() {
+            if (!sourceImageData) return;
+            rotationDeg = (rotationDeg + 90) % 360;
+            try {
+                currentImageData = await getRotatedFromSource(rotationDeg);
+                document.getElementById('originalImage').src = currentImageData;
+                updateOriginalInfo();
+                clearSplitResult();
+            } catch (e) {
+                rotationDeg = (rotationDeg + 270) % 360;
+                alert('旋转失败: ' + e.message);
+            }
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+
+        async function splitImage() {
+            if (!currentImageData) return;
+
+            const splitBtn = document.getElementById('splitBtn');
+            const progressBar = document.getElementById('progressBar');
+            const progressFill = document.getElementById('progressFill');
+
+            splitBtn.disabled = true;
+            progressBar.style.display = 'block';
+            progressFill.style.width = '20%';
+
+            try {
+                const img = await loadImage(currentImageData);
+                progressFill.style.width = '50%';
+
+                const width = img.width;
+                const height = img.height;
+                const halfWidth = Math.floor(width / 2);
+
+                const leftCanvas = document.createElement('canvas');
+                leftCanvas.width = halfWidth;
+                leftCanvas.height = height;
+                leftCanvas.getContext('2d').drawImage(img, 0, 0, halfWidth, height, 0, 0, halfWidth, height);
+
+                const rightCanvas = document.createElement('canvas');
+                rightCanvas.width = width - halfWidth;
+                rightCanvas.height = height;
+                rightCanvas.getContext('2d').drawImage(img, halfWidth, 0, width - halfWidth, height, 0, 0, width - halfWidth, height);
+
+                progressFill.style.width = '80%';
+
+                leftImageData = canvasToDataUrl(leftCanvas);
+                rightImageData = canvasToDataUrl(rightCanvas);
+                document.getElementById('leftImage').src = leftImageData;
+                document.getElementById('rightImage').src = rightImageData;
+
+                progressFill.style.width = '100%';
+                setTimeout(() => {
+                    progressBar.style.display = 'none';
+                    progressFill.style.width = '0%';
+                    document.getElementById('resultMessage').style.display = 'block';
+                    splitBtn.disabled = false;
+                }, 300);
+            } catch (e) {
+                alert('切分失败: ' + e.message);
+                progressBar.style.display = 'none';
+                progressFill.style.width = '0%';
+                splitBtn.disabled = false;
+            }
+        }
+
+        function downloadName(suffix) {
+            const nameWithoutExt = originalFilename.replace(/\.[^/.]+$/, '');
+            const ext = getExportMime() === 'image/png' ? 'png' : (getExportMime() === 'image/webp' ? 'webp' : 'jpg');
+            const rot = rotationDeg === 0 ? '' : `_rot${rotationDeg}`;
+            return `${nameWithoutExt}${rot}${suffix}.${ext}`;
+        }
+
+        function triggerDownload(href, filename) {
+            const link = document.createElement('a');
+            link.href = href;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function downloadOriginalImage() {
+            if (!currentImageData) return;
+            if (rotationDeg === 0) {
+                triggerDownload(currentImageData, originalFilename);
+                return;
+            }
+            triggerDownload(currentImageData, downloadName(''));
+        }
+
+        function downloadImage(side) {
+            const data = side === 'left' ? leftImageData : rightImageData;
+            if (!data) return;
+            triggerDownload(data, downloadName(`_${side}`));
+        }
+
+        function resetAll() {
+            originalFile = null;
+            sourceImageData = null;
+            currentImageData = null;
+            leftImageData = null;
+            rightImageData = null;
+            originalFilename = '';
+            rotationDeg = 0;
+
+            document.getElementById('previewSection').style.display = 'none';
+            document.getElementById('resultMessage').style.display = 'none';
+            document.getElementById('splitBtn').disabled = true;
+            document.getElementById('rotateBtn').disabled = true;
+            document.getElementById('rotateHeaderBtn').disabled = true;
+            document.getElementById('fileInput').value = '';
+            document.getElementById('originalTitle').textContent = '原始图片';
+        }
+    </script>
+</body>
+</html>
