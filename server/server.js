@@ -8,9 +8,12 @@ const AsyncQueue = require('./gpu_scheduler/async_queue');
 const ImageJobStore = require('./gpu_scheduler/image_job_store');
 const ChatTurnStore = require('./gpu_scheduler/chat_turn_store');
 const { startImageWorker } = require('./gpu_scheduler/image_worker');
+const { startRagWorker } = require('./gpu_scheduler/rag_worker');
 const { processChatTurn } = require('./gpu_scheduler/chat_turn_runner');
 const { runCharacterImageJob } = require('./gpu_scheduler/character_image_runner');
 const ollamaGuard = require('./gpu_scheduler/ollama_guard');
+const matteService = require('./matte_service');
+const ragService = require('./rag_service');
 const path = require('path');
 const fs = require('fs');
 require('dotenv').config();
@@ -78,6 +81,7 @@ function writeComfyWorkflowState(state) {
 }
 
 const imageQueue = new AsyncQueue();
+const ragQueue = new AsyncQueue();
 const imageJobStore = new ImageJobStore();
 const chatTurnStore = new ChatTurnStore();
 
@@ -89,6 +93,15 @@ startImageWorker({
         chatImagesDir
     })
 }).catch((err) => console.error('[ImageWorker] fatal:', err));
+
+if (ragService.isEnabled()) {
+    ragService.start().catch((err) => console.error('[RAG] daemon start failed:', err.message));
+    startRagWorker({
+        queue: ragQueue,
+        aiService,
+        getImageQueueSize: () => imageQueue.size
+    }).catch((err) => console.error('[RagWorker] fatal:', err.message));
+}
 
 // Ensure data files exist
 if (!fs.existsSync(PRESETS_FILE)) {
@@ -369,6 +382,12 @@ app.delete('/api/chat-history/:characterId', (req, res) => {
         const emotionData = JSON.parse(fs.readFileSync(EMOTION_HISTORY_FILE, 'utf8') || '{}');
         delete emotionData[characterId];
         fs.writeFileSync(EMOTION_HISTORY_FILE, JSON.stringify(emotionData, null, 2));
+
+        if (ragService.isEnabled()) {
+            ragService.deleteCharacter(characterId).catch((err) => {
+                console.warn('[RAG] clear on delete failed:', err.message);
+            });
+        }
         
         res.json({ success: true });
     } catch (e) {
@@ -610,7 +629,7 @@ app.post('/api/comfy/test', async (req, res) => {
 
 /** Resolve chat credentials from server .env when the client omits keys (thin mobile client). */
 function resolveChatCredentials(body = {}) {
-    const provider = String(body.provider || process.env.DEFAULT_CHAT_PROVIDER || 'deepseek').trim();
+    const provider = String(body.provider || process.env.DEFAULT_CHAT_PROVIDER || 'doubao').trim();
     let model = String(body.model || '').trim();
     let apiKey = String(body.apiKey || '').trim();
     let baseUrl = String(body.baseUrl || '').trim();
@@ -620,9 +639,13 @@ function resolveChatCredentials(body = {}) {
         apiKey = process.env.DEEPSEEK_API_KEY || apiKey;
         baseUrl = baseUrl || process.env.DEEPSEEK_BASE_URL || '';
     } else if (provider === 'doubao') {
-        model = model || process.env.VOLC_MODEL_1_8 || process.env.VOLC_MODEL || '';
+        // 与网页默认一致：火山方舟上的 DeepSeek v4 Flash GA
+        model = model
+            || process.env.VOLC_CHAT_MODEL
+            || process.env.VOLC_MODEL
+            || 'deepseek-v4-flash-ga-260731';
         apiKey = process.env.VOLC_API_KEY || apiKey;
-        baseUrl = baseUrl || process.env.VOLC_BASE_URL || '';
+        baseUrl = baseUrl || process.env.VOLC_BASE_URL || 'https://ark.cn-beijing.volces.com/api/v3';
     } else if (provider === 'ollama') {
         model = model || process.env.OLLAMA_MODEL || 'llama3';
         baseUrl = baseUrl || process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434';
@@ -647,7 +670,9 @@ app.post('/api/chat-turn', (req, res) => {
         turnId: turn.id,
         turnStore: chatTurnStore,
         aiService,
-        payload
+        payload,
+        ragService,
+        ragQueue
     }).catch((err) => {
         console.error('[ChatTurn] unhandled:', err.message);
     });
@@ -892,6 +917,25 @@ app.post('/api/export-chat-strips', (req, res) => {
 
     console.log('[Export] saved', saved.length, 'strips to', resolved);
     res.json({ ok: true, folderPath: resolved, saved });
+});
+
+/** Background matting for depth-of-field preview (cached on disk) */
+app.post('/api/image/matte', async (req, res) => {
+    try {
+        const url = String(req.body?.url || '').trim();
+        const data = String(req.body?.data || '').trim();
+        const maxSide = Math.min(2048, Math.max(256, Number(req.body?.maxSide) || 1280));
+        if (!url && !data) {
+            return res.status(400).json({ ok: false, error: '缺少 url 或 data' });
+        }
+        const result = data
+            ? await matteService.getMatteFromDataUrl(data, maxSide)
+            : await matteService.getMatteForeground(url, maxSide);
+        res.json({ ok: true, ...result });
+    } catch (e) {
+        console.error('[matte]', e);
+        res.status(500).json({ ok: false, error: e.message || '抠图失败' });
+    }
 });
 
 /** Single full-res PNG export — one file per request to avoid huge batch payloads */
@@ -1171,7 +1215,7 @@ app.post('/api/comfy/generate', async (req, res) => {
                 presetId: body.presetId,
                 mode: body.mode === 'manual' ? 'manual' : 'ai',
                 scene: body.scene || body.prompt || '',
-                count: body.count,
+                count: Math.max(1, Math.min(10, Number(body.count) || 1)),
                 overrides: body.overrides || {},
                 jobId: body.jobId || null,
                 onProgress: send
@@ -1192,7 +1236,7 @@ app.post('/api/comfy/generate', async (req, res) => {
             presetId: body.presetId,
             mode: body.mode === 'manual' ? 'manual' : 'ai',
             scene: body.scene || body.prompt || '',
-            count: body.count,
+            count: Math.max(1, Math.min(10, Number(body.count) || 1)),
             overrides: body.overrides || {},
             jobId: body.jobId || null
         });

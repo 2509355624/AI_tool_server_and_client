@@ -41,42 +41,63 @@
 
     /** Blurred same-image background — blur on a small offscreen, then upscale (GPU-safe). */
     function drawBlurredImageBackground(ctx, image, x, y, w, h, opts, drawW) {
-        const baseBlur = Number(opts.glassBlur) || 36;
+        const baseBlur = Number(opts.glassBlur) || 32;
         const maxSide = Math.max(w, h, 1);
         const isPreview = Number(opts.previewMaxWidth) > 0;
-        // 预览/大图都在小画布上做模糊，再放大贴回，避免整幅高清 blur 把 canvas 画黑
-        const blurCanvasMax = isPreview ? 420 : 720;
+        const blurCanvasMax = isPreview ? 480 : 840;
         const shrink = Math.min(1, blurCanvasMax / maxSide);
         const offW = Math.max(1, Math.ceil(w * shrink));
         const offH = Math.max(1, Math.ceil(h * shrink));
         const blurPx = Math.min(
-            48,
-            Math.max(6, baseBlur * (Math.max(offW, drawW * shrink || offW) / REF_WIDTH))
+            56,
+            Math.max(2, baseBlur * (Math.max(offW, drawW * shrink || offW) / REF_WIDTH))
         );
+        const zoom = Math.max(1, Number(opts.glassZoom) || 1);
 
         const off = document.createElement('canvas');
         off.width = offW;
         off.height = offH;
         const octx = off.getContext('2d', { alpha: true });
         octx.imageSmoothingEnabled = true;
-        octx.imageSmoothingQuality = 'medium';
-        octx.filter = `blur(${blurPx}px) saturate(1.12) brightness(1.04)`;
-        // 多画一圈，减少 blur 边缘发黑
+        octx.imageSmoothingQuality = 'high';
+        octx.filter = `blur(${blurPx}px) saturate(${opts.glassSaturate ?? 1.08}) brightness(${opts.glassBrightness ?? 1.02})`;
         const pad = Math.ceil(blurPx * 2);
-        drawCoverImage(octx, image, -pad, -pad, offW + pad * 2, offH + pad * 2);
+        const drawWZoom = offW * zoom;
+        const drawHZoom = offH * zoom;
+        drawCoverImage(
+            octx,
+            image,
+            (offW - drawWZoom) / 2 - pad,
+            (offH - drawHZoom) / 2 - pad,
+            drawWZoom + pad * 2,
+            drawHZoom + pad * 2
+        );
         octx.filter = 'none';
 
-        const frostAlpha = Number(opts.glassFrost);
-        const frost = Number.isFinite(frostAlpha) ? frostAlpha : 0.14;
+        const frostRaw = Number(opts.glassFrost);
+        const frost = Number.isFinite(frostRaw) ? frostRaw : 0.05;
         const tintAlpha = Number(opts.glassTint) || 0;
+        const radius = Number(opts.borderRadius) || 14;
 
         ctx.save();
-        roundRect(ctx, x, y, w, h, 14);
+        roundRect(ctx, x, y, w, h, radius);
         ctx.clip();
         ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(off, x, y, w, h);
+        // 半透明玻璃罩：白雾强度由 glassFrost 控制（破框默认约 0.3），不是厚磨砂亚克力
         if (frost > 0) {
             ctx.fillStyle = `rgba(255, 255, 255, ${frost})`;
+            ctx.fillRect(x, y, w, h);
+        }
+        // 顶部高光，模拟玻璃反光
+        const sheen = Number(opts.glassSheen);
+        const sheenAlpha = Number.isFinite(sheen) ? sheen : 0.1;
+        if (sheenAlpha > 0) {
+            const gloss = ctx.createLinearGradient(x, y, x, y + h * 0.45);
+            gloss.addColorStop(0, `rgba(255, 255, 255, ${sheenAlpha})`);
+            gloss.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            ctx.fillStyle = gloss;
             ctx.fillRect(x, y, w, h);
         }
         if (tintAlpha > 0 && opts.bgColor) {
@@ -189,6 +210,134 @@
         ctx.fill();
     }
 
+    /**
+     * 抠图角色绘制：可缩放（默认底部锚定，方便凳脚/裙摆贴框底）+ 可选边缘阴影（景深感）
+     */
+    function resolveSubjectDrawRect(imgX, imgY, drawW, drawH, opts) {
+        const raw = Number(opts.popOutSubjectScale ?? opts.subjectScale);
+        const scale = Number.isFinite(raw) ? Math.min(1.8, Math.max(0.5, raw)) : 1;
+        const w = drawW * scale;
+        const h = drawH * scale;
+        const x = imgX + (drawW - w) / 2;
+        const anchor = String(opts.subjectAnchor || 'bottom');
+        let y;
+        if (anchor === 'center') {
+            y = imgY + (drawH - h) / 2;
+        } else if (anchor === 'top') {
+            y = imgY;
+        } else {
+            // bottom：放大时向下伸，更容易跟黑框下边对齐
+            y = imgY + drawH - h;
+        }
+        return { x, y, w, h, scale };
+    }
+
+    function drawMatteLayer(ctx, matteFg, imgX, imgY, drawW, drawH, opts) {
+        const fgW = matteFg.naturalWidth || matteFg.width;
+        const fgH = matteFg.naturalHeight || matteFg.height;
+        if (!fgW || !fgH) return;
+        const rect = resolveSubjectDrawRect(imgX, imgY, drawW, drawH, opts);
+        const shadowBlurRaw = Number(opts.subjectShadowBlur);
+        const blur = Number.isFinite(shadowBlurRaw)
+            ? Math.max(0, shadowBlurRaw)
+            : (opts.subjectShadow === false ? 0 : 16);
+
+        ctx.save();
+        if (blur > 0) {
+            ctx.shadowColor = opts.subjectShadowColor || 'rgba(0, 0, 0, 0.42)';
+            ctx.shadowBlur = blur;
+            ctx.shadowOffsetX = Number(opts.subjectShadowOffsetX) || 0;
+            ctx.shadowOffsetY = Number.isFinite(Number(opts.subjectShadowOffsetY))
+                ? Number(opts.subjectShadowOffsetY)
+                : Math.max(2, Math.round(blur * 0.28));
+        }
+        ctx.drawImage(matteFg, 0, 0, fgW, fgH, rect.x, rect.y, rect.w, rect.h);
+        ctx.restore();
+    }
+
+    /**
+     * 景深最底层：只保留磨砂原图，去掉横/竖黑边杂项。
+     */
+    function drawFrostPlate(ctx, image, x, y, w, h, opts, drawW, radius) {
+        const frostRaw = Number(opts.popOutBgOpacity);
+        const frost = Number.isFinite(frostRaw) ? Math.min(0.7, Math.max(0, frostRaw)) : 0.22;
+        drawBlurredImageBackground(ctx, image, x, y, w, h, {
+            ...opts,
+            borderRadius: radius || 0,
+            glassBlur: Number(opts.popOutOuterBlur) || 18,
+            glassFrost: frost,
+            glassSheen: 0.04,
+            glassZoom: 1.03,
+            glassBrightness: 1.0,
+            glassSaturate: 1.02,
+            glassTint: 0
+        }, drawW);
+    }
+
+    /**
+     * 景深探出（正确模型）：
+     * - 卡片 = 可缩小的空心描边框（框内透明，透出磨砂背景）
+     * - 角色 = 独立抠图层，绝不 clip，放大后自然探出卡片
+     * 不再需要单独的「破框」模式，也不再内套第二层空心黑框。
+     */
+    function drawDofCardAndSubject(
+        ctx,
+        matteFg,
+        imgX,
+        imgY,
+        drawW,
+        drawH,
+        borderRadius,
+        borderWidth,
+        borderColor,
+        opts
+    ) {
+        const cardScaleRaw = Number(opts.popOutFrameScale);
+        const cardScale = Number.isFinite(cardScaleRaw)
+            ? Math.min(0.98, Math.max(0.35, cardScaleRaw))
+            : 0.72;
+        const cardW = drawW * cardScale;
+        const cardH = drawH * cardScale;
+        const freeX = Math.max(0, drawW - cardW);
+        const freeY = Math.max(0, drawH - cardH);
+        const offsetY = Number(opts.popOutFrameOffsetY);
+        const offsetNorm = Number.isFinite(offsetY) ? Math.max(-1, Math.min(1, offsetY)) : -0.2;
+        const cardX = imgX + freeX / 2;
+        const cardY = imgY + freeY * (0.5 + offsetNorm * 0.5);
+        const radius = Math.max(4, Math.round((Number(borderRadius) || 14) * Math.min(1, cardScale + 0.15)));
+        const strokeW = Math.max(2.5, Number(borderWidth) || 3);
+
+        // 空心卡片：只用干净圆角描边，避免手绘边框在拐角花掉
+        ctx.save();
+        ctx.strokeStyle = borderColor || '#1a1814';
+        ctx.lineWidth = strokeW;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        roundRect(ctx, cardX + strokeW / 2, cardY + strokeW / 2, Math.max(1, cardW - strokeW), Math.max(1, cardH - strokeW), Math.max(2, radius - strokeW / 2));
+        ctx.stroke();
+        ctx.restore();
+
+        // 角色在最上：可探出卡片（不 clip）
+        drawMatteLayer(ctx, matteFg, imgX, imgY, drawW, drawH, opts);
+    }
+
+    function drawDofInsideFrame(ctx, image, matteFg, imgX, imgY, drawW, drawH, opts) {
+        // 兼容旧调用：改为同一套「卡片 + 探出」
+        drawFrostPlate(ctx, image, imgX, imgY, drawW, drawH, opts, drawW, opts.borderRadius || 14);
+        drawDofCardAndSubject(
+            ctx,
+            matteFg,
+            imgX,
+            imgY,
+            drawW,
+            drawH,
+            opts.borderRadius || 14,
+            opts.borderWidth || 3,
+            opts.borderColor || '#1a1814',
+            opts
+        );
+    }
+
     function drawTape(ctx, x, y, w, h, variant) {
         ctx.save();
         ctx.globalAlpha = variant === 'warm' ? 0.32 : 0.28;
@@ -279,8 +428,9 @@
             padding: 32,
             bgColor: '#f6edda',
             glassBg: true,
-            glassBlur: 36,
-            glassFrost: 0.14,
+            glassBlur: 32,
+            glassFrost: 0.05,
+            glassSheen: 0.1,
             borderWidth: 3,
             borderColor: '#26221c',
             borderRadius: 14,
@@ -568,11 +718,18 @@
             ? captionLines.length * captionFontSize * 1.45 + 12
             : 0;
 
+        // 景深开启即预留探出边距（卡片缩小后角色可探出）
+        const useDofPad = !!(opts.depthOfField);
+        const overflow = Number(opts.popOutOverflow) || 0.16;
+        const popPadTop = useDofPad ? Math.ceil(drawH * overflow) : 0;
+        const popPadBottom = useDofPad ? Math.ceil(drawH * overflow * 0.55) : 0;
+        const popPadSides = useDofPad ? Math.ceil(drawW * 0.08) : 0;
+
         const innerW = drawW + borderWidth * 2;
         const innerH = drawH + borderWidth * 2;
-        const cardW = innerW + padding * 2;
-        const cardH = innerH + padding * 2 + extraBottom + captionBlockH;
-        const width = cardW + shadowExtra;
+        const cardW = innerW + padding * 2 + popPadSides * 2;
+        const cardH = innerH + padding * 2 + extraBottom + captionBlockH + popPadTop + popPadBottom;
+        const width = cardW + shadowExtra + popPadSides * 2;
         const height = cardH + shadowExtra;
 
         return {
@@ -584,6 +741,9 @@
             borderWidth,
             borderRadius,
             shadowOffset,
+            popPadTop,
+            popPadBottom,
+            popPadSides,
             captionLines,
             captionFontSize,
             uiScale,
@@ -631,8 +791,11 @@
 
         const canvasW = measured.width;
         const canvasH = measured.height;
-        const cardW = drawW + borderWidth * 2 + padding * 2;
-        const cardH = drawH + borderWidth * 2 + padding * 2 + extraBottom + (
+        const popPadTop = measured.popPadTop || 0;
+        const popPadBottom = measured.popPadBottom || 0;
+        const popPadSides = measured.popPadSides || 0;
+        const cardW = drawW + borderWidth * 2 + padding * 2 + popPadSides * 2;
+        const cardH = drawH + borderWidth * 2 + padding * 2 + extraBottom + popPadTop + popPadBottom + (
             measured.captionLines.length
                 ? measured.captionLines.length * measured.captionFontSize * 1.45 + 12
                 : 0
@@ -648,7 +811,15 @@
         const imgW = image.naturalWidth || image.width;
         const imgH = image.naturalHeight || image.height;
 
-        drawCardBackground(ctx, image, 0, 0, canvasW, canvasH, opts, drawW);
+        const matteFg = opts.matteForeground;
+        const useDof = opts.depthOfField && matteFg && (matteFg.naturalWidth || matteFg.width);
+
+        // 景深：外层磨砂板 + 可缩小空心卡片 + 独立角色（可探出）
+        if (useDof) {
+            drawFrostPlate(ctx, image, 0, 0, canvasW, canvasH, opts, drawW, 0);
+        } else {
+            drawCardBackground(ctx, image, 0, 0, canvasW, canvasH, opts, drawW);
+        }
 
         if (tiltDeg) {
             ctx.save();
@@ -657,9 +828,13 @@
             ctx.translate(-canvasW / 2, -canvasH / 2);
         }
 
-        drawCardBackground(ctx, image, 0, 0, cardW, cardH, opts, drawW);
+        if (useDof) {
+            drawFrostPlate(ctx, image, 0, 0, cardW, cardH, opts, drawW, 14);
+        } else {
+            drawCardBackground(ctx, image, 0, 0, cardW, cardH, opts, drawW);
+        }
 
-        if (tape) {
+        if (tape && !useDof) {
             const ts = uiScale;
             const variant = tapeVariant || 'warm';
             drawTape(ctx, padding + 8 * ts, padding - 6 * ts, 52 * ts, 16 * ts, variant);
@@ -668,21 +843,35 @@
             }
         }
 
-        const imgX = padding;
-        const imgY = padding;
+        const imgX = padding + popPadSides;
+        const imgY = padding + popPadTop;
 
-        drawImageShadow(ctx, imgX, imgY, drawW, drawH, borderRadius, opts);
+        if (useDof) {
+            drawDofCardAndSubject(
+                ctx,
+                matteFg,
+                imgX,
+                imgY,
+                drawW,
+                drawH,
+                borderRadius,
+                borderWidth,
+                borderColor,
+                opts
+            );
+        } else {
+            drawImageShadow(ctx, imgX, imgY, drawW, drawH, borderRadius, opts);
+            ctx.save();
+            clipFramePath(ctx, imgX, imgY, drawW, drawH, borderRadius, borderStyle);
+            ctx.clip();
+            ctx.drawImage(image, 0, 0, imgW, imgH, imgX, imgY, drawW, drawH);
+            ctx.restore();
 
-        ctx.save();
-        clipFramePath(ctx, imgX, imgY, drawW, drawH, borderRadius, borderStyle);
-        ctx.clip();
-        ctx.drawImage(image, 0, 0, imgW, imgH, imgX, imgY, drawW, drawH);
-        ctx.restore();
-
-        if (borderWidth > 0) {
-            ctx.strokeStyle = borderColor;
-            ctx.lineWidth = borderWidth;
-            strokeFramePath(ctx, imgX, imgY, drawW, drawH, borderRadius, borderStyle);
+            if (borderWidth > 0) {
+                ctx.strokeStyle = borderColor;
+                ctx.lineWidth = borderWidth;
+                strokeFramePath(ctx, imgX, imgY, drawW, drawH, borderRadius, borderStyle);
+            }
         }
 
         if (measured.captionLines.length) {
