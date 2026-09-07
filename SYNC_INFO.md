@@ -1,6 +1,6 @@
 # Mirror sync stamp (auto-generated)
 
-SyncedAt: 2026-09-07 13:03:37
+SyncedAt: 2026-09-07 13:58:21
 
-server: comfy_RAG@f43bed5 - feat: add skipImagePipeline switch; support ragRuling legacy/fixed for A/B
-server_full: f43bed55ef5f98ea9b176fa5bbd40b94ce479254
+server: comfy_RAG@b7387c4 - feat: add prominent AI-image on/off toggle to chat topbar
+server_full: b7387c48e4b466f6715828b4c262cffc9caca603
