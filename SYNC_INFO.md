@@ -1,6 +1,6 @@
 # Mirror sync stamp (auto-generated)
 
-SyncedAt: 2026-09-06 20:27:20
+SyncedAt: 2026-09-07 13:03:37
 
-server: comfy_RAG@847bb5d - fix: break chat timing display into emotion/text/outfit/image stages
-server_full: 847bb5d34c24038a8a07b8d2abb88d3ae0671815
+server: comfy_RAG@f43bed5 - feat: add skipImagePipeline switch; support ragRuling legacy/fixed for A/B
+server_full: f43bed55ef5f98ea9b176fa5bbd40b94ce479254
